@@ -1,0 +1,388 @@
+{% raw %}
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wilbert Chat</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useEffect, useMemo, useRef, useState } = React;
+
+    function Icon({ name, size = 18 }) {
+      const p = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" };
+      const icons = {
+        bot: <><rect x="5" y="8" width="14" height="10" rx="3"/><path d="M12 8V4"/><path d="M8 4h8"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/></>,
+        user: <><circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/></>,
+        mic: <><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></>,
+        send: <><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></>,
+        paperclip: <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 1 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>,
+        stop: <rect x="6" y="6" width="12" height="12" rx="2"/>,
+        link: <><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></>,
+        external: <><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></>,
+        file: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></>,
+        x: <><path d="M18 6 6 18"/><path d="m6 6 12 12"/></>,
+        volume: <><path d="M11 5 6 9H2v6h4l5 4Z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></>,
+        loader: <path d="M21 12a9 9 0 1 1-6.2-8.56"/>
+      };
+      return <svg {...p}>{icons[name] || icons.bot}</svg>;
+    }
+
+    function cleanSpaces(value) {
+      return String(value || "").split(" ").filter(Boolean).join(" ").trim();
+    }
+
+    function slugify(value) {
+      const allowed = "abcdefghijklmnopqrstuvwxyz0123456789";
+      let out = "";
+      String(value || "wilbert-project").toLowerCase().split("").forEach((ch) => {
+        out += allowed.includes(ch) ? ch : "-";
+      });
+      while (out.includes("--")) out = out.split("--").join("-");
+      out = out.split("-").filter(Boolean).join("-");
+      return out || "wilbert-project";
+    }
+
+    function isProjectText(text, hasProject) {
+      const t = String(text || "").toLowerCase();
+      const buildWords = ["bouw", "maak", "website", "app", "project", "pagina", "software"];
+      const updateWords = ["kleur", "kleuren", "layout", "aanpassen", "verander", "groter", "kleiner", "toevoegen", "verwijder", "update"];
+      return buildWords.some((w) => t.includes(w)) || (hasProject && updateWords.some((w) => t.includes(w)));
+    }
+
+    function getProjectName(text) {
+      const words = cleanSpaces(text).split(" ");
+      const markers = ["website", "app", "project", "pagina"];
+      const index = words.findIndex((w) => markers.includes(w.toLowerCase()));
+      if (index >= 0) return words.slice(index, index + 7).join(" ");
+      return "Wilbert Project";
+    }
+
+    function makeProjectHtml(project) {
+      const title = project.name;
+      const body = project.lastPrompt;
+      return [
+        "<!doctype html><html lang='nl'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'><title>", title, "</title>",
+        "<style>*{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;min-height:100vh;color:white;background:linear-gradient(135deg,#07111f,#0e3c4c,#3b1b52)}main{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:48px}.card{max-width:1050px;border:1px solid rgba(255,255,255,.22);border-radius:34px;background:rgba(255,255,255,.1);box-shadow:0 40px 120px rgba(0,0,0,.38);backdrop-filter:blur(22px);padding:48px}.pill{display:inline-flex;border-radius:999px;padding:10px 15px;background:rgba(103,232,249,.15);border:1px solid rgba(103,232,249,.35);color:#c8fbff;font-weight:800;font-size:12px;letter-spacing:.16em;text-transform:uppercase}h1{font-size:clamp(40px,7vw,84px);line-height:.95;margin:28px 0 20px;letter-spacing:-.06em}p{font-size:20px;line-height:1.65;color:rgba(255,255,255,.82);max-width:780px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:34px}.box{border-radius:24px;padding:22px;background:rgba(255,255,255,.11);border:1px solid rgba(255,255,255,.15)}.box b{display:block;margin-bottom:7px}.box span{color:rgba(255,255,255,.68)}@media(max-width:800px){main{padding:20px}.card{padding:28px}.grid{grid-template-columns:1fr}}</style>",
+        "</head><body><main><section class='card'><div class='pill'>Wilbert build versie ", project.version, "</div><h1>", title, "</h1><p>", body, "</p><div class='grid'><div class='box'><b>Live preview</b><span>Dit is de actuele build van jouw project.</span></div><div class='box'><b>Zelfde project</b><span>Updates blijven gekoppeld aan dit project.</span></div><div class='box'><b>Versie ", project.version, "</b><span>Elke wijziging krijgt een nieuwe preview.</span></div></div></section></main></body></html>"
+      ].join("");
+    }
+
+    function makePreviewUrl(html) {
+      return URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    }
+
+    const firstMessage = [{ id: 1, role: "wilbert", text: "Ik ben Wilbert. Vertel wat je wil bouwen.", previewUrl: null }];
+
+    function Message({ message }) {
+      const isUser = message.role === "user";
+      return <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
+        {!isUser && <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-400 to-cyan-300 text-slate-950 shadow-lg"><Icon name="bot" /></div>}
+        <div className={`max-w-[82%] rounded-[1.7rem] border px-5 py-4 shadow-2xl backdrop-blur-xl ${isUser ? "border-cyan-300/20 bg-cyan-300/15" : "border-white/12 bg-white/[0.09]"}`}>
+          <div className="mb-1 text-xs uppercase tracking-[0.18em] text-white/40">{isUser ? "Jij" : "Wilbert"}</div>
+          <p className="whitespace-pre-wrap leading-relaxed text-white/85 text-[14px]">{message.text}</p>
+          {message.files && message.files.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{message.files.map((file, i) => <span key={i} className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/70">{file.name}</span>)}</div>}
+          {message.images && message.images.length > 0 && (
+            <div className="mt-4 grid gap-3">
+              {message.images.map((item, i) => {
+                const src = typeof item === "string" ? item : (item.url || item.src || item.image_url || item.imageUrl || "");
+                if (!src) return null;
+                return (
+                  <div key={i} className="rounded-2xl border border-white/10 bg-white/5 p-2">
+                    <img
+                      src={src}
+                      alt={`Afbeelding ${i + 1}`}
+                      className="max-h-80 w-full rounded-xl object-cover shadow-xl"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                        const fallback = e.currentTarget.nextElementSibling;
+                        if (fallback) fallback.style.display = "block";
+                      }}
+                    />
+                    <a
+                      href={src}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ display: "none" }}
+                      className="block rounded-xl border border-rose-300/20 bg-rose-400/10 px-3 py-2 text-sm text-rose-100"
+                    >
+                      Afbeelding kon niet laden — open image URL
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {message.previewUrl && <a href={message.previewUrl} target="_blank" rel="noreferrer" className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-cyan-300/25 bg-cyan-300/10 px-4 py-3 text-cyan-100 transition hover:bg-cyan-300/15"><span className="flex items-center gap-2"><Icon name="link" /> Preview-link project</span><Icon name="external" /></a>}
+        </div>
+        {isUser && <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white/12 text-white ring-1 ring-white/15"><Icon name="user" /></div>}
+      </div>;
+    }
+
+    function FileChip({ file, onRemove }) {
+      return <div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-lg backdrop-blur-xl">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-400/30 to-cyan-300/30"><Icon name="file" /></div>
+        <div className="min-w-0"><p className="max-w-[180px] truncate font-medium">{file.name}</p><p className="text-xs text-white/55">{Math.max(1, Math.round((file.size || 0) / 1024))} KB</p></div>
+        <button onClick={onRemove} className="rounded-full p-1 text-white/50 transition hover:bg-white/15 hover:text-white" type="button"><Icon name="x" size={15} /></button>
+      </div>;
+    }
+
+    // Koppelpunten naar jouw bestaande Wilbert systeem.
+    // Pas alleen deze endpoints aan als jouw Flask routes anders heten.
+    const WILBERT_CHAT_ENDPOINT = "/chat";
+    const WILBERT_UPLOAD_ENDPOINT = "/upload";
+
+    async function sendToWilbertSystem({ message, files, project }) {
+      const formData = new FormData();
+      formData.append("message", message || "");
+      formData.append("project_id", project?.id || "");
+      formData.append("project_name", project?.name || "");
+
+      files.forEach((file) => {
+        formData.append("files", file);
+      });
+
+      const response = await fetch(WILBERT_CHAT_ENDPOINT, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "");
+        throw new Error(errorText || `Wilbert systeem gaf status ${response.status}`);
+      }
+
+      return response.json();
+    }
+
+    function normalizeWilbertResponse(data) {
+      const reply =
+        data.reply ||
+        data.response ||
+        data.message ||
+        data.answer ||
+        data.text ||
+        "Wilbert heeft gereageerd.";
+
+      const previewUrl =
+        data.preview_url ||
+        data.previewUrl ||
+        data.project_preview_url ||
+        data.url ||
+        null;
+
+      const rawImages =
+        data.images ||
+        data.image ||
+        data.image_url ||
+        data.imageUrl ||
+        data.image_urls ||
+        data.imageUrls ||
+        data.photos ||
+        [];
+
+      const images = Array.isArray(rawImages)
+        ? rawImages
+        : rawImages
+          ? [rawImages]
+          : [];
+
+      const projectId = data.project_id || data.projectId || null;
+      const projectName = data.project_name || data.projectName || null;
+      const version = data.version || data.project_version || null;
+
+      return { reply, previewUrl, images, projectId, projectName, version, raw: data };
+    }
+
+    function WilbertLuxeChat() {
+      const [backendStatus, setBackendStatus] = useState("checking");
+
+      // 🔥 HARD CHECK: ping backend automatisch
+      useEffect(() => {
+        fetch("/chat", { method: "OPTIONS" })
+          .then(() => setBackendStatus("connected"))
+          .catch(() => setBackendStatus("disconnected"));
+      }, []);
+      const [messages, setMessages] = useState(firstMessage);
+      const [input, setInput] = useState("");
+      const [files, setFiles] = useState([]);
+      const [voiceEnabled, setVoiceEnabled] = useState(true);
+      const [isRecording, setIsRecording] = useState(false);
+      const [isThinking, setIsThinking] = useState(false);
+      const [statusText, setStatusText] = useState("");
+      const [activePreview, setActivePreview] = useState("");
+      const [currentProject, setCurrentProject] = useState(null);
+      const projectRef = useRef(null);
+      const recognitionRef = useRef(null);
+      const fileInputRef = useRef(null);
+      const canUseSpeechRecognition = useMemo(() => Boolean(window.SpeechRecognition || window.webkitSpeechRecognition), []);
+
+      const stopVoice = () => { if (window.speechSynthesis) window.speechSynthesis.cancel(); };
+      const speak = (text) => {
+        if (!voiceEnabled || !window.speechSynthesis) return;
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = "nl-NL";
+        u.rate = 0.96;
+        window.speechSynthesis.speak(u);
+      };
+
+      const handleFiles = (event) => {
+        setFiles((old) => [...old, ...Array.from(event.target.files || [])]);
+        event.target.value = "";
+      };
+
+      const toggleRecording = () => {
+        if (!canUseSpeechRecognition) {
+          setInput((v) => cleanSpaces(v + " Microfoon niet ondersteund"));
+          return;
+        }
+        if (isRecording) {
+          recognitionRef.current && recognitionRef.current.stop();
+          return;
+        }
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.lang = "nl-NL";
+        recognition.continuous = true;
+        recognition.interimResults = false;
+        const parts = [];
+        recognition.onresult = (event) => {
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) parts.push(event.results[i][0].transcript.trim());
+          }
+        };
+        recognition.onerror = () => setIsRecording(false);
+        recognition.onend = () => {
+          const text = cleanSpaces(parts.join(" "));
+          if (text) setInput((old) => cleanSpaces(old + " " + text));
+          setIsRecording(false);
+        };
+        recognitionRef.current = recognition;
+        setIsRecording(true);
+        recognition.start();
+      };
+
+      const updateProjectFromSystem = (normalized, fallbackText) => {
+        if (!normalized.previewUrl && !normalized.projectId && !normalized.projectName) return null;
+
+        const previous = projectRef.current;
+        const project = previous
+          ? { ...previous }
+          : {
+              id: normalized.projectId || slugify(getProjectName(fallbackText)) + "-" + Date.now().toString(36),
+              name: normalized.projectName || getProjectName(fallbackText),
+              version: 0,
+            };
+
+        if (normalized.projectId) project.id = normalized.projectId;
+        if (normalized.projectName) project.name = normalized.projectName;
+        project.version = normalized.version || (project.version || 0) + 1;
+        project.lastPrompt = fallbackText;
+        project.previewUrl = normalized.previewUrl || project.previewUrl || "";
+
+        projectRef.current = project;
+        setCurrentProject(project);
+        if (project.previewUrl) setActivePreview(project.previewUrl);
+        return project;
+      };
+
+      const sendMessage = async () => {
+        const cleanInput = cleanSpaces(input);
+        if (!cleanInput && files.length === 0) return;
+        stopVoice();
+        const uploadFiles = [...files];
+        const sentFiles = uploadFiles.map((f) => ({ name: f.name, size: f.size, type: f.type }));
+        setMessages((old) => [...old, { id: Date.now(), role: "user", text: cleanInput || "Bestanden toegevoegd", files: sentFiles }]);
+        setInput("");
+        setFiles([]);
+        setIsThinking(true);
+        setStatusText("Wilbert is bezig met jouw verzoek...");
+
+        try {
+          const data = await sendToWilbertSystem({
+            message: cleanInput,
+            files: uploadFiles,
+            project: projectRef.current,
+          });
+
+          const normalized = normalizeWilbertResponse(data);
+          const project = updateProjectFromSystem(normalized, cleanInput);
+          const finalPreviewUrl = normalized.previewUrl || project?.previewUrl || null;
+
+          setMessages((old) => [
+            ...old,
+            {
+              id: Date.now() + 1,
+              role: "wilbert",
+              text: normalized.reply,
+              images: normalized.images,
+              previewUrl: finalPreviewUrl,
+            },
+          ]);
+
+          speak(normalized.reply);
+          setStatusText("Wilbert is klaar");
+        } catch (error) {
+          setStatusText("Geen reactie van backend of fout");
+          setMessages((old) => [
+            ...old,
+            {
+              id: Date.now() + 1,
+              role: "wilbert",
+              text: `Er ging iets mis met de koppeling naar je Wilbert systeem: ${error.message}`,
+              previewUrl: null,
+            },
+          ]);
+        } finally {
+          setIsThinking(false);
+        }
+      };
+
+      return <div className="min-h-screen overflow-hidden bg-[#070816] text-white">
+        <div className="pointer-events-none fixed inset-0"><div className="absolute -left-32 top-0 h-96 w-96 rounded-full bg-fuchsia-500/25 blur-3xl"></div><div className="absolute right-0 top-12 h-[34rem] w-[34rem] rounded-full bg-cyan-400/20 blur-3xl"></div><div className="absolute bottom-0 left-1/3 h-96 w-96 rounded-full bg-violet-500/20 blur-3xl"></div></div>
+        <main className="relative mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-5 md:px-6">
+          <header className="relative mb-5 flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.07] px-5 py-4 shadow-2xl backdrop-blur-2xl md:flex-row md:items-center md:justify-between">
+            <div className="absolute top-2 right-4 text-xs">
+              {backendStatus === "checking" && <span className="text-yellow-300">Backend check...</span>}
+              {backendStatus === "connected" && <span className="text-green-300">Backend verbonden</span>}
+              {backendStatus === "disconnected" && <span className="text-red-300">Backend NIET verbonden</span>}
+            </div>
+            <div className="flex items-center gap-4"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-300 via-violet-300 to-fuchsia-300 text-slate-950 shadow-lg"><Icon name="bot" size={23} /></div><div><h1 className="text-xl font-semibold tracking-tight md:text-2xl">Wilbert</h1><p className="text-sm text-white/55">AI cofounder · builder · advisor · menselijke chat</p></div></div>
+            <div className="flex items-center gap-2"><button onClick={() => setVoiceEnabled((v) => !v)} className="rounded-2xl border border-cyan-300/25 bg-cyan-300/10 px-4 py-3 text-sm text-cyan-100" type="button"><span className="flex items-center gap-2"><Icon name="volume" /> Stem</span></button><button onClick={stopVoice} className="rounded-2xl border border-rose-300/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100" type="button"><span className="flex items-center gap-2"><Icon name="stop" /> Stop</span></button></div>
+          </header>
+          <section className="grid flex-1 gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="flex min-h-[72vh] flex-col rounded-[2rem] border border-white/10 bg-white/[0.06] shadow-2xl backdrop-blur-2xl">
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4"><div><p className="text-sm font-medium text-white/80">Gesprek</p><p className="text-xs text-white/45">Praat eerst je verhaal in. Wilbert reageert pas na verzenden.</p></div><div className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs text-emerald-100">Online</div></div>
+              <div className="flex-1 space-y-5 overflow-y-auto p-5">{messages.map((m) => <Message key={m.id} message={m} />)}{isThinking && (
+                  <div className="flex items-center gap-3 text-sm text-white/55">
+                    <Icon name="loader" /> {statusText}
+                  </div>
+                )}</div>
+              <div className="border-t border-white/10 p-4">
+                {files.length > 0 && <div className="mb-3 flex flex-wrap gap-2">{files.map((file, i) => <FileChip key={i} file={file} onRemove={() => setFiles((old) => old.filter((_, x) => x !== i))} />)}</div>}
+                <div className="rounded-[1.7rem] border border-white/10 bg-slate-950/55 p-3 shadow-inner"><textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder="Typ of spreek je verhaal in. Druk pas op verzenden wanneer je klaar bent..." className="min-h-[92px] w-full resize-none bg-transparent px-2 py-2 text-base text-white outline-none placeholder:text-white/35" /><div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between"><div className="flex flex-wrap items-center gap-2"><input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFiles} /><button onClick={() => fileInputRef.current.click()} className="rounded-2xl border border-white/10 bg-white/8 p-3 text-white/80" type="button"><Icon name="paperclip" /></button><button onClick={toggleRecording} className={`rounded-2xl border p-3 ${isRecording ? "border-rose-300/35 bg-rose-400/20 text-rose-100" : "border-white/10 bg-white/8 text-white/80"}`} type="button"><Icon name="mic" /></button>{isRecording && <span className="text-sm text-rose-100">Luistert... klik opnieuw om te stoppen.</span>}</div><button onClick={sendMessage} className="rounded-2xl bg-gradient-to-r from-cyan-300 via-violet-300 to-fuchsia-300 px-5 py-3 font-semibold text-slate-950 shadow-lg" type="button"><span className="flex items-center gap-2">Verzenden <Icon name="send" /></span></button></div></div>
+              </div>
+            </div>
+            <aside className="flex min-h-[72vh] flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.06] shadow-2xl backdrop-blur-2xl">
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4"><div><p className="text-sm font-medium text-white/80">Live project preview</p><p className="text-xs text-white/45">Wordt automatisch bijgewerkt bij project-updates.</p></div>{activePreview ? <a href={activePreview} target="_blank" rel="noreferrer" className="rounded-2xl border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-xs text-cyan-100">Open preview</a> : <span className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/45">Nog geen project</span>}</div>
+              <div className="m-5 overflow-hidden rounded-[1.8rem] border border-white/10 bg-slate-950/70 shadow-2xl"><div className="flex items-center gap-2 border-b border-white/10 bg-white/5 px-4 py-3"><span className="h-3 w-3 rounded-full bg-rose-300"></span><span className="h-3 w-3 rounded-full bg-amber-300"></span><span className="h-3 w-3 rounded-full bg-emerald-300"></span><span className="ml-2 truncate text-xs text-white/45">{currentProject ? `${currentProject.name} · versie ${currentProject.version}` : "Project preview verschijnt hier"}</span></div><div className="relative aspect-[4/3] bg-[#090b18]">{activePreview ? <iframe title="Wilbert project preview" src={activePreview} className="h-full w-full border-0 bg-white" /> : <div className="flex h-full items-center justify-center p-8 text-center text-white/45">Geef Wilbert een bouw-opdracht. De echte preview verschijnt hier direct.</div>}</div></div>
+            </aside>
+          </section>
+        </main>
+      </div>;
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<WilbertLuxeChat />);
+  </script>
+</body>
+</html>
+{% endraw %}
+
