@@ -430,6 +430,25 @@ def health():
 def memory_route():
     return jsonify(load_memory())
 
+def get_memory(user_id="default"):
+    try:
+        res = supabase.table("messages") \
+            .select("message, response") \
+            .eq("user_id", user_id) \
+            .order("created_at", desc=True) \
+            .limit(5) \
+            .execute()
+
+        memories = res.data or []
+
+        context = ""
+        for m in memories:
+            context += f"User: {m['message']}\nWilbert: {m['response']}\n"
+
+        return context
+    except Exception as e:
+        print("Memory error:", e)
+        return ""
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -565,18 +584,31 @@ def chat():
             reply = web_intelligence(prompt)
 
         else:
+            memory = get_memory()
+
             system_prompt = wilbert_system_prompt(memory, intent)
+           
             response = client.chat.completions.create(
                 model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
                 temperature=0.4,
-                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}]
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "system", "content": f"Previous conversation:\n{memory}"},
+                    {"role": "user", "content": prompt}
+                ]
             )
+
             reply = response.choices[0].message.content or "Ik ben er, maar ik kreeg geen antwoord terug."
 
-        remember(memory, "assistant", reply)
-        save_memory(memory)
+            supabase.table("messages").insert({
+                "user_id": "default",
+                "message": prompt,
+                "response": reply
+            }).execute()
+
         if response_payload is not None:
             return jsonify(response_payload)
+
         return jsonify({"reply": reply, "intent": intent})
 
     except Exception as exc:
