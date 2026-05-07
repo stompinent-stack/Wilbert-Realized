@@ -496,7 +496,7 @@ def chat():
     result = mode_agent.run(prompt)
     intent = result.get("intent", "advisor")
     mode = result.get("mode", "prototype")
-    remember(memory, "user", prompt)
+    # remember(memory, "user", prompt)
     update_structured_memory(memory, prompt, intent)
     response_payload = None
 
