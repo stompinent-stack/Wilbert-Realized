@@ -584,8 +584,7 @@ def chat():
             reply = web_intelligence(prompt)
 
         else:
-            memory = get_memory()
-
+            conversation_memory = get_memory()
             system_prompt = wilbert_system_prompt(memory, intent)
            
             response = client.chat.completions.create(
@@ -593,7 +592,7 @@ def chat():
                 temperature=0.4,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "system", "content": f"Previous conversation:\n{memory}"},
+                    {"role": "system", "content": f"Previous conversation:\n{conversation_memory}"},
                     {"role": "user", "content": prompt}
                 ]
             )
