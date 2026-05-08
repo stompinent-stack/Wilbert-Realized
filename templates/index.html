@@ -220,6 +220,7 @@ if ("serviceWorker" in navigator) {
       const [messages, setMessages] = useState(firstMessage);
       const [input, setInput] = useState("");
       const [files, setFiles] = useState([]);
+      console.log("FILES STATE:", files);
       const [voiceEnabled, setVoiceEnabled] = useState(true);
       const [isRecording, setIsRecording] = useState(false);
       const [isThinking, setIsThinking] = useState(false);
