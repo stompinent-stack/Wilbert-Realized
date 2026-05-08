@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Tuple
 
 import requests
 from bs4 import BeautifulSoup
+from supabase import create_client
 from tools.realtime_tool import realtime_intelligence
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request, send_from_directory
@@ -33,6 +34,11 @@ BASE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = BASE_DIR / "output" / "project"
 UPLOAD_DIR = BASE_DIR / "uploads"
 MEMORY_FILE = BASE_DIR / "cofounder_memory.json"
+
+supabase = create_client(
+    os.getenv("SUPABASE_URL"),
+    os.getenv("SUPABASE_KEY")
+)
 
 PROJECT_DIR.mkdir(parents=True, exist_ok=True)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
