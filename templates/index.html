@@ -240,19 +240,17 @@ if ("serviceWorker" in navigator) {
         u.lang = "nl-NL";
         u.rate = 0.96;
         window.speechSynthesis.speak(u);
-      };
+        };
 
-        setFiles((old) => [...old, ...Array.from(event.target.files || [])]);
-  event.target.value = "";
-};const handleFiles = (event) => {
-    const selected = Array.from(event.target.files || []);
+        const handleFiles = (event) => {
+          const selected = Array.from(event.target.files || []);
 
-    if (selected.length > 0) {
-      setFiles(selected);
-  }
-};
+          if (selected.length > 0) {
+            setFiles(selected);
+          }
+        };
 
-      const toggleRecording = () => {
+        const toggleRecording = () => {
         if (!canUseSpeechRecognition) {
           setInput((v) => cleanSpaces(v + " Microfoon niet ondersteund"));
           return;
