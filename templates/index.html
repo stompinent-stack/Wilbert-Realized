@@ -152,9 +152,9 @@ if ("serviceWorker" in navigator) {
       formData.append("project_id", project?.id || "");
       formData.append("project_name", project?.name || "");
 
-      files.forEach((file) => {
-        formData.append("file", file);
-      });
+      if (files && files.length > 0) {
+        formData.append("file", files[0]);
+      }
 
       const response = await fetch(WILBERT_CHAT_ENDPOINT, {
         method: "POST",
@@ -242,10 +242,15 @@ if ("serviceWorker" in navigator) {
         window.speechSynthesis.speak(u);
       };
 
-      const handleFiles = (event) => {
         setFiles((old) => [...old, ...Array.from(event.target.files || [])]);
-        event.target.value = "";
-      };
+  event.target.value = "";
+};const handleFiles = (event) => {
+    const selected = Array.from(event.target.files || []);
+
+    if (selected.length > 0) {
+      setFiles(selected);
+  }
+};
 
       const toggleRecording = () => {
         if (!canUseSpeechRecognition) {
@@ -375,8 +380,15 @@ if ("serviceWorker" in navigator) {
                   </div>
                 )}</div>
               <div className="border-t border-white/10 p-4">
-                {files.length > 0 && <div className="mb-3 flex flex-wrap gap-2">{files.map((file, i) => <FileChip key={i} file={file} onRemove={() => setFiles((old) => old.filter((_, x) => x !== i))} />)}</div>}
-                <div className="rounded-[1.7rem] border border-white/10 bg-slate-950/55 p-3 shadow-inner"><textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder="Typ of spreek je verhaal in. Druk pas op verzenden wanneer je klaar bent..." className="min-h-[92px] w-full resize-none bg-transparent px-2 py-2 text-base text-white outline-none placeholder:text-white/35" /><div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between"><div className="flex flex-wrap items-center gap-2"><input
+                {files.length > 0 && (
+  <div className="mb-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+    Afbeelding geselecteerd: {files[0].name}
+    <button type="button" onClick={() => setFiles([])} className="ml-3 underline">
+      verwijderen
+    </button>
+  </div>
+)}
+  <div className="rounded-[1.7rem] border border-white/10 bg-slate-950/55 p-3 shadow-inner"><textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder="Typ of spreek je verhaal in. Druk pas op verzenden wanneer je klaar bent..." className="min-h-[92px] w-full resize-none bg-transparent px-2 py-2 text-base text-white outline-none placeholder:text-white/35" /><div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between"><div className="flex flex-wrap items-center gap-2"><input
   ref={fileInputRef}
   type="file"
   accept="image/*"
