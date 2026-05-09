@@ -1,177 +1,268 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>Scooter Rent – Luxe Scooter Verhuur</title>
-  <link rel="stylesheet" href="/project/style.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Big Tunes Radio — Discover the Next Generation of Music</title>
+<link rel="stylesheet" href="/project/style.css">
 </head>
 <body>
-  <!-- Sticky Glass Navbar -->
-  <nav class="navbar glass sticky">
-    <div class="container nav-inner">
-      <a href="/project/index.html" class="nav-logo">
-        <img src="/project/scooter-logo.png" alt="Scooter Rent Logo" class="logo-img">
-        <span>Scooter Rent</span>
-      </a>
-      <div class="nav-links">
-        <a href="/project/index.html" class="nav-link active">Home</a>
-        <a href="/project/about.html" class="nav-link">Over ons</a>
-        <a href="/project/scooters.html" class="nav-link">Scooters</a>
-        <a href="/project/booking.html" class="nav-link">Boek nu</a>
-        <a href="/project/contact.html" class="nav-link">Contact</a>
-      </div>
-      <a href="/project/booking.html" class="btn btn-primary nav-cta">Boek nu</a>
-    </div>
-  </nav>
 
-  <!-- Hero Section -->
-  <section class="hero">
-    <div class="container hero-grid">
-      <div class="hero-content">
-        <h1 class="hero-title animate-fadein">Ontdek de stad in stijl</h1>
-        <p class="hero-sub animate-fadein-delay">Premium scooters, direct te huur. Boek eenvoudig online.</p>
-        <a href="/project/booking.html" class="btn btn-primary hero-cta animate-slideup">Boek nu</a>
-      </div>
-      <div class="hero-image-wrap">
-        <div class="hero-image-bg"></div>
-        <img src="/project/hero-scooter.jpg" alt="Luxe scooters in de stad" class="hero-image" />
-      </div>
-    </div>
-    <div class="hero-glow"></div>
-  </section>
+<!-- NAVBAR -->
+<nav>
+  <div class="nav-logo">🎵 Big Tunes Radio</div>
+  <div class="nav-links">
+    <a href="#">Home</a>
+    <a href="#">Trending</a>
+    <a href="#">Artiesten</a>
+    <a href="#">Upload</a>
+    <a href="#">Community</a>
+  </div>
+  <div class="nav-right">
+    <button class="btn-ghost" style="padding:0.5rem 1.2rem;font-size:0.85rem">Inloggen</button>
+    <button class="btn-primary" style="padding:0.5rem 1.2rem;font-size:0.85rem">🎙️ Upload Track</button>
+  </div>
+</nav>
 
-  <!-- Features / Why Us -->
-  <section class="features">
-    <div class="container features-grid">
-      <div class="feature-card">
-        <div class="feature-icon" style="background: linear-gradient(135deg,#00C896 0%,#00e6b2 100%);">🛵</div>
-        <h3 class="feature-title">Nieuwe, luxe scooters</h3>
-        <p class="feature-desc">Altijd de nieuwste modellen, perfect onderhouden en direct beschikbaar.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon" style="background: linear-gradient(135deg,#111 0%,#444 100%);">⚡</div>
-        <h3 class="feature-title">Direct online boeken</h3>
-        <p class="feature-desc">Snel en eenvoudig reserveren via ons moderne boekingssysteem.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon" style="background: linear-gradient(135deg,#00C896 0%,#111 100%);">🌇</div>
-        <h3 class="feature-title">Ontdek de stad</h3>
-        <p class="feature-desc">Perfect voor citytrips, dagjes uit of flexibel vervoer in de stad.</p>
-      </div>
+<!-- HERO -->
+<section class="hero">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+  <div class="hero-inner">
+    <div class="hero-badge"><span class="badge-pulse"></span> 🔴 Live — 12,847 luisteraars nu</div>
+    <h1 class="gradient-text">Discover the Next<br>Generation of Music.</h1>
+    <p>Het platform waar onbekende artiesten wereldsterren worden. Luister live, ontdek nieuw talent en stem op jouw favorieten.</p>
+    <div class="hero-btns">
+      <button class="btn-primary" onclick="togglePlayer()">▶ Listen Live Now</button>
+      <button class="btn-ghost">🎤 Upload Your Track</button>
     </div>
-  </section>
+    <div class="hero-stats">
+      <div class="stat-item"><div class="stat-num">12.8K</div><div class="stat-label">Live Luisteraars</div></div>
+      <div class="stat-item"><div class="stat-num">3.2K</div><div class="stat-label">Artiesten</div></div>
+      <div class="stat-item"><div class="stat-num">24/7</div><div class="stat-label">Non-Stop Music</div></div>
+      <div class="stat-item"><div class="stat-num">48K+</div><div class="stat-label">Tracks Gespeeld</div></div>
+    </div>
+  </div>
+</section>
 
-  <!-- Product Showcase -->
-  <section class="scooter-showcase">
-    <div class="container">
-      <h2 class="section-title">Onze scooters</h2>
-      <div class="scooter-grid">
-        <div class="scooter-card">
-          <img src="/project/scooter1.jpg" alt="Vespa Sprint" class="scooter-img">
-          <div class="scooter-card-body">
-            <h3 class="scooter-title">Vespa Sprint</h3>
-            <ul class="scooter-specs">
-              <li>Elektrisch • 45km/u</li>
-              <li>Actieradius: 80km</li>
-              <li>Incl. helm & slot</li>
-            </ul>
-            <div class="scooter-price">€39 / dag</div>
-            <a href="/project/booking.html" class="btn btn-ghost">Bekijk details</a>
-          </div>
-        </div>
-        <div class="scooter-card">
-          <img src="/project/scooter2.jpg" alt="NIU NQi" class="scooter-img">
-          <div class="scooter-card-body">
-            <h3 class="scooter-title">NIU NQi</h3>
-            <ul class="scooter-specs">
-              <li>Elektrisch • 45km/u</li>
-              <li>Actieradius: 70km</li>
-              <li>Incl. helm & slot</li>
-            </ul>
-            <div class="scooter-price">€35 / dag</div>
-            <a href="/project/booking.html" class="btn btn-ghost">Bekijk details</a>
-          </div>
-        </div>
-        <div class="scooter-card">
-          <img src="/project/scooter3.jpg" alt="Peugeot Kisbee" class="scooter-img">
-          <div class="scooter-card-body">
-            <h3 class="scooter-title">Peugeot Kisbee</h3>
-            <ul class="scooter-specs">
-              <li>Benzine • 45km/u</li>
-              <li>Actieradius: 120km</li>
-              <li>Incl. helm & slot</li>
-            </ul>
-            <div class="scooter-price">€29 / dag</div>
-            <a href="/project/booking.html" class="btn btn-ghost">Bekijk details</a>
-          </div>
-        </div>
-      </div>
+<!-- LIVE PLAYER -->
+<div class="live-player-bar" id="playerBar">
+  <div class="player-left">
+    <div class="player-cover">🎵</div>
+    <div class="player-info">
+      <div class="now-playing-label">🔴 NOW PLAYING</div>
+      <div class="player-title" id="trackTitle">Midnight Dreams</div>
+      <div class="player-artist" id="trackArtist">Luna Rose</div>
     </div>
-  </section>
+  </div>
+  <div class="player-center">
+    <div class="equalizer" id="eq">
+      <span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div class="player-controls">
+      <button class="ctrl-btn" onclick="prevTrack()">⏮</button>
+      <button class="ctrl-btn play-btn" id="playBtn" onclick="togglePlay()">⏸</button>
+      <button class="ctrl-btn" onclick="nextTrack()">⏭</button>
+    </div>
+  </div>
+  <div class="player-right">
+    <div class="next-up">Volgende: <span id="nextTrack">City Lights — Marco V</span></div>
+    <input type="range" class="volume-slider" value="80" oninput="setVolume(this.value)">
+  </div>
+</div>
 
-  <!-- Testimonials -->
-  <section class="testimonials">
-    <div class="container">
-      <h2 class="section-title">Wat klanten zeggen</h2>
-      <div class="testimonial-grid">
-        <div class="testimonial-card">
-          <div class="testimonial-avatar" style="background-image:url('/project/user1.jpg')"></div>
-          <div class="testimonial-body">
-            <p class="testimonial-text">“Fantastische service en superluxe scooters. Binnen 5 minuten geboekt en direct op pad!”</p>
-            <div class="testimonial-name">Sanne Jansen</div>
-          </div>
-        </div>
-        <div class="testimonial-card">
-          <div class="testimonial-avatar" style="background-image:url('/project/user2.jpg')"></div>
-          <div class="testimonial-body">
-            <p class="testimonial-text">“De Vespa was als nieuw en het boeken ging razendsnel. Zeker een aanrader!”</p>
-            <div class="testimonial-name">Tom de Vries</div>
-          </div>
-        </div>
-        <div class="testimonial-card">
-          <div class="testimonial-avatar" style="background-image:url('/project/user3.jpg')"></div>
-          <div class="testimonial-body">
-            <p class="testimonial-text">“Perfect voor een dagje Amsterdam. Luxe gevoel en top klantenservice.”</p>
-            <div class="testimonial-name">Lisa van Dijk</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
+<!-- LOGO BAR -->
+<div class="logo-bar">
+  <span class="logo-bar-label">Artiesten van over de hele wereld</span>
+  <div class="logo-bar-items">
+    <span class="logo-bar-item">Amsterdam</span>
+    <span class="logo-bar-item">Rotterdam</span>
+    <span class="logo-bar-item">London</span>
+    <span class="logo-bar-item">New York</span>
+    <span class="logo-bar-item">Lagos</span>
+    <span class="logo-bar-item">São Paulo</span>
+  </div>
+</div>
 
-  <!-- CTA Banner -->
-  <section class="cta-banner">
-    <div class="container cta-banner-inner">
-      <div class="cta-banner-content">
-        <h2 class="cta-banner-title">Klaar voor jouw rit?</h2>
-        <p class="cta-banner-desc">Boek vandaag nog jouw premium scooter en ontdek de stad op jouw manier.</p>
-      </div>
-      <a href="/project/booking.html" class="btn btn-primary btn-lg">Boek direct</a>
+<!-- TRENDING -->
+<section style="background:var(--bg2)">
+  <div class="container">
+    <div class="section-header fade-up">
+      <span class="section-tag">🔥 Hot Right Now</span>
+      <h2 class="section-title">Trending Tracks</h2>
+      <p class="section-sub">De meest gestemde nummers van deze week</p>
     </div>
-  </section>
+    <div class="tracks-list">
+      <div class="track-row glass-card fade-up" onclick="playTrack('Midnight Dreams','Luna Rose')">
+        <div class="track-num">01</div>
+        <div class="track-cover">🌙</div>
+        <div class="track-info">
+          <div class="track-name">Midnight Dreams</div>
+          <div class="track-artist">Luna Rose</div>
+        </div>
+        <div class="track-genre">R&B</div>
+        <div class="track-plays">124K plays</div>
+        <div class="track-vote">
+          <button class="vote-btn" onclick="vote(this,event)">♥ 2.4K</button>
+        </div>
+        <div class="track-badge trending-badge">🔥 Trending</div>
+      </div>
+      <div class="track-row glass-card fade-up fade-up-delay-1" onclick="playTrack('City Lights','Marco V')">
+        <div class="track-num">02</div>
+        <div class="track-cover">🌆</div>
+        <div class="track-info">
+          <div class="track-name">City Lights</div>
+          <div class="track-artist">Marco V</div>
+        </div>
+        <div class="track-genre">Electronic</div>
+        <div class="track-plays">98K plays</div>
+        <div class="track-vote">
+          <button class="vote-btn" onclick="vote(this,event)">♥ 1.9K</button>
+        </div>
+        <div class="track-badge new-badge">⚡ New</div>
+      </div>
+      <div class="track-row glass-card fade-up fade-up-delay-2" onclick="playTrack('Golden Hour','Aisha J')">
+        <div class="track-num">03</div>
+        <div class="track-cover">☀️</div>
+        <div class="track-info">
+          <div class="track-name">Golden Hour</div>
+          <div class="track-artist">Aisha J</div>
+        </div>
+        <div class="track-genre">Afrobeats</div>
+        <div class="track-plays">87K plays</div>
+        <div class="track-vote">
+          <button class="vote-btn" onclick="vote(this,event)">♥ 1.7K</button>
+        </div>
+        <div class="track-badge trending-badge">🔥 Trending</div>
+      </div>
+      <div class="track-row glass-card fade-up fade-up-delay-3" onclick="playTrack('Neon Pulse','DJ Spark')">
+        <div class="track-num">04</div>
+        <div class="track-cover">💜</div>
+        <div class="track-info">
+          <div class="track-name">Neon Pulse</div>
+          <div class="track-artist">DJ Spark</div>
+        </div>
+        <div class="track-genre">House</div>
+        <div class="track-plays">76K plays</div>
+        <div class="track-vote">
+          <button class="vote-btn" onclick="vote(this,event)">♥ 1.4K</button>
+        </div>
+        <div class="track-badge"></div>
+      </div>
+    </div>
+  </div>
+</section>
 
-  <!-- Footer -->
-  <footer class="footer">
-    <div class="container footer-inner">
-      <div class="footer-brand">
-        <img src="/project/scooter-logo.png" alt="Scooter Rent Logo" class="footer-logo">
-        <span>Scooter Rent</span>
-      </div>
-      <div class="footer-links">
-        <a href="/project/about.html">Over ons</a>
-        <a href="/project/scooters.html">Scooters</a>
-        <a href="/project/booking.html">Boek nu</a>
-        <a href="/project/contact.html">Contact</a>
-      </div>
-      <div class="footer-copy">
-        &copy; 2024 Scooter Rent. Alle rechten voorbehouden.
+<!-- ARTIST OF THE WEEK -->
+<section style="background:var(--bg)">
+  <div class="container">
+    <div class="section-header fade-up">
+      <span class="section-tag">⭐ Spotlight</span>
+      <h2 class="section-title">Artist of the Week</h2>
+    </div>
+    <div class="artist-spotlight glass-card fade-up">
+      <div class="spotlight-orb"></div>
+      <div class="spotlight-avatar">LR</div>
+      <div class="spotlight-info">
+        <div class="spotlight-badge">🏆 Artist of the Week</div>
+        <h3 class="spotlight-name">Luna Rose</h3>
+        <p class="spotlight-bio">Luna Rose is een 22-jarige zangeres uit Amsterdam die R&B en Soul samensmelt tot iets compleet eigens. Haar stem raakt je diep. Haar muziek blijft hangen.</p>
+        <div class="spotlight-stats">
+          <div class="sp-stat"><div class="sp-num">124K</div><div class="sp-label">Plays</div></div>
+          <div class="sp-stat"><div class="sp-num">2.4K</div><div class="sp-label">Stemmen</div></div>
+          <div class="sp-stat"><div class="sp-num">8</div><div class="sp-label">Tracks</div></div>
+        </div>
+        <button class="btn-primary" onclick="playTrack('Midnight Dreams','Luna Rose')">▶ Speel Top Track</button>
       </div>
     </div>
-  </footer>
-  <script src="/project/app.js"></script>
+  </div>
+</section>
+
+<!-- BENTO FEATURES -->
+<section style="background:var(--bg2)">
+  <div class="container">
+    <div class="section-header fade-up">
+      <span class="section-tag">🎯 Platform</span>
+      <h2 class="section-title">Alles op één plek</h2>
+      <p class="section-sub">Van onbekend talent tot volgende generatie sterren</p>
+    </div>
+    <div class="bento-grid">
+      <div class="glass-card span-2 fade-up">
+        <div class="icon-box icon-purple">📡</div>
+        <div class="card-title">24/7 Live Radio</div>
+        <div class="card-desc">Non-stop muziek van echte artiesten. Automatische shuffle, fade transitions en smart playlist rotatie. Altijd vers, altijd live.</div>
+        <div class="card-big-num">24/7</div>
+      </div>
+      <div class="glass-card fade-up fade-up-delay-1">
+        <div class="icon-box icon-pink">🚀</div>
+        <div class="card-title">Upload & Go Live</div>
+        <div class="card-desc">Upload je track, voeg artwork toe en ga live. Na goedkeuring sta je direct in de rotatie.</div>
+      </div>
+      <div class="glass-card fade-up fade-up-delay-2">
+        <div class="icon-box icon-cyan">📊</div>
+        <div class="card-title">Stem Systeem</div>
+        <div class="card-desc">Luisteraars stemmen op jouw muziek. Meer stemmen = meer airtime. Trending tracks komen vaker voorbij.</div>
+      </div>
+      <div class="glass-card fade-up fade-up-delay-3">
+        <div class="icon-box icon-amber">🌍</div>
+        <div class="card-title">Wereldwijd Bereik</div>
+        <div class="card-desc">Luisteraars uit 80+ landen. Jouw muziek bereikt mensen die je anders nooit zou bereiken.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- UPLOAD CTA -->
+<section class="cta-section">
+  <div class="orb orb-1" style="opacity:0.5"></div>
+  <div class="container" style="position:relative;z-index:2">
+    <div class="hero-badge" style="margin:0 auto 2rem"><span class="badge-pulse"></span> Gratis voor artiesten</div>
+    <h2 class="gradient-text fade-up">Jouw muziek verdient<br>een podium.</h2>
+    <p class="fade-up">Upload vandaag je eerste track en ga live op Big Tunes Radio. Geen kosten, geen drempel. Alleen muziek.</p>
+    <div class="cta-btns fade-up">
+      <button class="btn-primary">🎤 Upload Nu — Gratis</button>
+      <button class="btn-ghost">Meer info</button>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-top">
+    <div class="footer-brand">
+      <div class="nav-logo">🎵 Big Tunes Radio</div>
+      <p>Het platform waar onbekende artiesten wereldsterren worden. 24/7 live muziek van echt talent.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Platform</h4>
+      <a href="#">Live Radio</a>
+      <a href="#">Trending</a>
+      <a href="#">Nieuwe Releases</a>
+      <a href="#">Top Charts</a>
+    </div>
+    <div class="footer-col">
+      <h4>Artiesten</h4>
+      <a href="#">Upload Track</a>
+      <a href="#">Artist Dashboard</a>
+      <a href="#">Promotie</a>
+      <a href="#">Community</a>
+    </div>
+    <div class="footer-col">
+      <h4>Info</h4>
+      <a href="#">Over ons</a>
+      <a href="#">Contact</a>
+      <a href="#">Privacy</a>
+      <a href="#">Voorwaarden</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2026 Big Tunes Radio. Alle rechten voorbehouden.</p>
+    <p style="color:var(--accent)">🔴 Live — 12,847 luisteraars</p>
+  </div>
+</footer>
+
+<script src="/project/app.js"></script>
 </body>
 </html>
