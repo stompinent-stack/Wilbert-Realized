@@ -63,7 +63,7 @@ class DesignAgent:
         user = f"TAAK:\n{task}\n\nPLAN:\n{plan}\n\nMaak nu het volledige design plan."
 
         response = self._anthropic.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5-20251001",
             max_tokens=3000,
             messages=[{"role": "user", "content": f"<system>{system}</system>\n\n{user}"}]
         )
