@@ -1,11 +1,6 @@
-import os
-import anthropic
-
-
 class DesignAgent:
     def __init__(self, client):
         self.client = client  # OpenAI client
-        self._anthropic = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
     def run(self, task: str, plan: str) -> str:
         system = (
@@ -62,9 +57,12 @@ class DesignAgent:
 
         user = f"TAAK:\n{task}\n\nPLAN:\n{plan}\n\nMaak nu het volledige design plan."
 
-        response = self._anthropic.messages.create(
-            model="claude-sonnet-4-5-20250929",
-            max_tokens=3000,
-            messages=[{"role": "user", "content": f"<system>{system}</system>\n\n{user}"}]
+        response = self.client.chat.completions.create(
+            model="gpt-4o-mini",
+            temperature=0.3,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user}
+            ]
         )
-        return response.content[0].text or ""
+        return response.choices[0].message.content or ""
