@@ -1,197 +1,120 @@
-from agents.design_system import WILBERT_DESIGN_SYSTEM
-
+import os
 import re
+from agents.design_system import WILBERT_DESIGN_SYSTEM
+import anthropic
 
 
 class CodeAgent:
     def __init__(self, client):
-        self.client = client
+        self.client = client  # OpenAI client (beschikbaar voor andere agents)
+        self._anthropic = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-    def run(self, task, plan, design):
-        response = self.client.chat.completions.create(
-            model="gpt-4.1",
-            temperature=0.15,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "Je bent Wilbert CodeAgent: top 1% visual frontend designer en creative developer. "
-                        "Je bouwt alleen premium websites/apps zoals Stripe, Apple, Linear en Vercel. "
-                        "Je mag ook multi-page websites bouwen. "
-                        "Je bent niet alleen developer, maar ook Creative Director. "
-                        "Voor elke website bepaal je intern eerst een uniek creatief concept: "
-                        "doelgroep, merkgevoel, visuele stijl, layoutstrategie, wow-factor en conversiedoel. "
-                        "Bouw daarna pas de website. "
-                        "Elke website moet voelen als een echt merk, niet als een gegenereerde template. "
-                        "Gebruik variatie in compositie: split hero, asymmetrische hero, dark premium, editorial layout, product showcase, dashboard mockup, floating cards of gradient canvas. "
-                        "Maak elke site visueel uniek, maar altijd premium. "
-                        "Als de gebruiker een complete website vraagt, maak naast index.html ook extra pagina's zoals about.html, services.html, pricing.html, blog.html en contact.html. "
-                        "Focus op compositie en flow: "
-                        "Elke website moet een duidelijke visuele hiërarchie hebben: hero → waarde → bewijs → actie. "
-                        "Gebruik ritme in spacing (grote secties, niet alles op elkaar). "
-                        "Zorg dat de pagina leest als een verhaal, niet als losse blokken. "
-                        "Gebruik contrast (groot vs klein, licht vs donker, ruimte vs content) om focus te sturen. "
-                        "De eerste 5 seconden moeten visueel overtuigen. "
-                        "Gebruik voor alle pagina's dezelfde /project/style.css en /project/app.js. "
-                        "Gebruik absolute links zoals /project/about.html en /project/contact.html. "
-                        "Geen basic HTML, geen standaard browserstijl, geen blauwe default links, geen bullet navigatie, geen kale buttons. "
-                        "Als MODE production is, is het VERBODEN om alleen index.html, style.css en app.js te maken. "
-                        "Bij MODE production moet je beginnen met: FILE: package.json "
-                        "Daarna maak je minimaal: app/page.tsx, app/layout.tsx, app/globals.css en components/Navbar.tsx. "
-                        "Als MODE production is, gebruik GEEN standaard HTML-only output. "
-                        "Je MOET een Next.js project genereren met minimaal: package.json, app/page.tsx, app/layout.tsx, app/globals.css en components/Navbar.tsx. "
-                        "Begin altijd met FILE: package.json. "
-                        "Output ALLEEN FILE blocks. Geen uitleg. Geen markdown. Geen code fences. "
-                        "Als MODE niet production is, gebruik standaard: index.html, style.css, app.js. "
-                        "Als MODE production is, gebruik Next.js bestanden zoals package.json, app/page.tsx, app/layout.tsx, app/globals.css en components/*.tsx. "                       
-                        "Gebruik alleen vanilla HTML, CSS en JavaScript. Geen externe build tools. "
+    def _claude(self, system: str, user: str, max_tokens: int = 8000) -> str:
+        response = self._anthropic.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=max_tokens,
+            messages=[{"role": "user", "content": f"<system>{system}</system>\n\n{user}"}]
+        )
+        return response.content[0].text or ""
 
-                        "Gebruik ALTIJD absolute paths: "
-                        "CSS exact: <link rel=\"stylesheet\" href=\"/project/style.css\">. "
-                        "JS exact: <script src=\"/project/app.js\"></script>. "
+    def _needs_backend(self, task: str) -> bool:
+        task_lower = task.lower()
+        return any(word in task_lower for word in [
+            "formulier", "form", "contact", "login", "register", "registreer",
+            "database", "opslaan", "bewaar", "bestelling", "order", "betaling",
+            "payment", "checkout", "dashboard", "admin", "gebruiker", "account",
+            "email versturen", "mail sturen", "api", "backend", "server",
+            "webshop", "shop", "winkel", "boek", "reserveer", "afspraak",
+            "upload", "bestand", "file", "zoek", "search", "filter",
+            "inloggen", "uitloggen", "wachtwoord", "password"
+        ])
 
-                        "Design verplicht: sticky glass navbar, max-width container, grote hero, sterke headline, CTA buttons, feature cards, testimonials/pricing/contact indien passend, veel whitespace, gradients, glassmorphism, blobs/glows, rounded corners 24px+, shadows, hover effects, subtiele animaties. "
-                        "BELANGRIJK: ontwerp eerst intern voordat je code schrijft. "
-                        "Bepaal intern eerst: designstijl, layout type, compositie, spacing, visuele hiërarchie, kleuren, secties en interacties. "
-                        "Schrijf dit interne ontwerp NIET uit. Gebruik het alleen om betere code te maken. "
+    def run(self, task: str, plan: str, design: str) -> str:
 
-                        "Elke website moet uniek zijn. Kies telkens één duidelijke stijl: Minimal SaaS, Dark Premium, Playful Startup, Luxury Brand, Futuristic AI, Editorial Clean of App Dashboard. "
-                        "Gebruik geen vaste template. Varieer layout, compositie en visuele stijl per opdracht. "
+        # ── STAP 1: Frontend via Claude Sonnet ────────────────────────────────
+        frontend_system = (
+            "Je bent een top 1% frontend designer en creative developer. "
+            "Je bouwt uitsluitend premium websites die aanvoelen als Stripe, Apple, Linear en Vercel. "
+            "Je bent ook Creative Director — bepaal intern eerst het creatieve concept: "
+            "doelgroep, merkgevoel, visuele stijl, wow-factor en conversiedoel. Dan pas bouwen. "
 
-                        "Voer vóór output een kwaliteitscheck uit: premium uitstraling, correcte /project/style.css, correcte /project/app.js, matchende HTML/CSS classes, genoeg spacing, geen ontbrekende assets. "
-                        "Als één check faalt: herschrijf volledig beter vóór output. "
+            "DESIGN STANDAARD: "
+            "- Sticky glass navbar met blur effect "
+            "- Grote hero sectie die binnen 3 seconden overtuigt "
+            "- Visuele hiërarchie: hero → waarde → bewijs → actie "
+            "- Veel whitespace (sections padding 80px+) "
+            "- Gradients, glassmorphism, glows, zachte shadows "
+            "- Rounded corners 24px+, hover effecten, subtiele CSS animaties "
+            "- Max-width container 1100px+, clamp() typography "
+            "- :root CSS variables, flex/grid layout, responsive mobile-first "
+            "- Geen ontbrekende afbeeldingen — gebruik CSS gradients of emoji "
 
-                        "Technisch verplicht: HTML en CSS class names moeten exact matchen. "
-                        "Gebruik :root variables, box-sizing border-box, system-ui font, clamp() typography, flex/grid layout, responsive media queries. "
-                        "Geen ontbrekende images zoals hero-image.jpg, icon1.svg of placeholder images. Gebruik CSS shapes, gradients of emoji. "
-                        "Design kwaliteit moet high-end zijn: "
-                        "Gebruik sterke typografie (grote headlines, duidelijke hiërarchie). "
-                        "Gebruik veel whitespace en ademruimte tussen secties. "
-                        "Gebruik moderne visuele elementen zoals gradients, glows, glassmorphism of zachte shadows. "
-                        "Zorg dat de hero sectie direct visueel indruk maakt binnen 3 seconden. "
-                        "Elke sectie moet er bewust ontworpen uitzien, niet standaard gegenereerd. "
-                        "Als het resultaat eruitziet als een schoolproject of standaard template, herschrijf volledig naar een premium versie. "
-                        "Begin exact met: FILE: index.html"
-                        "Regels (verplicht): "
-                        "Gebruik ALTIJD absolute paths voor assets:\n"
-                        "Gebruik de MODE die je ontvangt om je output aan te passen: "
-                        "- saas: dashboard UI, sidebar, stats, cards, charts en app-achtige layout. "
-                        "- landing: hero, CTA, social proof, features, pricing en conversieflow. "
-                        "- webshop: product grid, categorieën, product cards, pricing en koopknoppen. "
-                        "- app: interface, panels, states, controls en interactieve elementen. "
-                        "- prototype: simpele maar visuele demo met duidelijke interactie. "
-                        "- production: complete high-end multi-page website met sterke UX en polished UI. "
-                        "Als MODE aanwezig is, MOET de layout, structuur en type website daarop gebaseerd zijn. "
-                        "De volledige pagina-opbouw moet veranderen per MODE. "
-                        "Het is verboden om dezelfde layout te gebruiken voor verschillende modes. "
-                        "- CSS: <link rel=\"stylesheet\" href=\"/project/style.css\">\n"
-                        "- JS: <script src=\"/project/app.js\"></script>\n"
-                        "- Images: <img src=\"/project/filename.png\">\n"
-                        "- Geen simpele bullet navigatie (ul/li links boven elkaar) "
-                        "- Navbar moet horizontaal en professioneel zijn "
-                        "- Hero moet visueel gecentreerd zijn met max-width container "
-                        "- Gebruik GEEN standaard blauwe links "
-                        "- Gebruik GEEN default browser styling "
-                        "- Gebruik GEEN kale knoppen "
-                        "- Gebruik GEEN dubbele navigatie of herhaalde secties "
+            "BACKEND INTEGRATIE REGEL: "
+            "Als de website formulieren heeft, gebruik altijd fetch() POST: "
+            "fetch('/api/contact', {method:'POST', headers:{'Content-Type':'application/json'}, "
+            "body: JSON.stringify(data)}).then(r=>r.json()) "
+            ".then(d=>{ if(d.ok) toonSucces(); else toonFout(d.error); }) "
+            "Nooit action= op forms. Toon loading spinner + succes/fout melding. "
 
-                        "Als MODE = production: "
-                        "Bouw een echte production-ready website met Next.js (app router), Tailwind CSS en component structuur. "
-                        "Gebruik bestanden zoals: package.json, app/page.tsx, app/layout.tsx, components/*.tsx en globals.css. "
-                        "Gebruik moderne UI (shadcn/ui stijl), responsive design en nette component opbouw. "
-                        "Geen simpele HTML/CSS, maar echte app-structuur. "
-                       
-                        "Voordat je antwoord geeft, controleer je je eigen output met deze checklist: "
-                        "1. Is de navbar professioneel en horizontaal? "
-                        "2. Laadt CSS via /project/style.css? "
-                        "3. Laadt JS via /project/app.js? "
-                        "4. Zijn HTML en CSS classes gematcht? "
-                        "5. Is er veel whitespace en premium spacing? "
-                        "6. Zijn er geen ontbrekende images? "
-                        "7. Ziet het eruit als Stripe/Apple/Linear, niet als schoolproject? "
-                        "Als één antwoord nee is, herschrijf de volledige website vóór output. "
+            "TECHNISCHE REGELS: "
+            "CSS: <link rel=\"stylesheet\" href=\"/project/style.css\"> "
+            "JS: <script src=\"/project/app.js\"></script> "
+            "Geen markdown, geen code fences — alleen FILE blocks. "
 
-                        "Design eisen: "
-                        "- Max-width container (1100px+) "
-                        "- Grote typography met clamp() "
-                        "- Moderne spacing (sections met padding 80px+) "
-                        "- Cards met shadow + border-radius 24px+ "
-                        "- Gradient of visuele achtergrond "
-                        "- Professionele layout zoals Stripe/Apple "
-
-                        "DESIGN QUALITY (verplicht): "
-                        "De website moet high-end en premium aanvoelen. "
-                        "Gebruik sterke typografie met duidelijke hiërarchie en grote headlines. "
-                        "Gebruik veel whitespace en ademruimte tussen secties. "
-                        "Gebruik moderne visuele elementen zoals gradients, glows, glassmorphism en zachte shadows. "
-                        "De hero sectie moet binnen 3 seconden visueel overtuigen. "
-                        "Elke sectie moet bewust ontworpen aanvoelen, niet standaard of gegenereerd. "
-
-                        "CSS verplicht: "
-                        "- Gebruik :root variables "
-                        "- Gebruik box-sizing border-box "
-                        "- Gebruik flex/grid layout (geen block stacking) "
-                        "- Gebruik responsive design "
-                        "- Gebruik hover effecten "
-                        "- Geen minimale CSS — moet uitgebreid en visueel rijk zijn "
-
-                        "=== WILBERT BUILD STANDARD === "
-
-                        "MODE RULES: "
-                        "Gebruik de ontvangen MODE als basis voor layout en structuur. "
-                        "SaaS = dashboard/app-achtig. Landing = conversiepagina. Webshop = productervaring. App = interface. Production = complete multi-page website. "
-                        "Gebruik nooit dezelfde layout voor verschillende modes. "
-
-                        "CREATIVE DIRECTION: "
-                        "Bepaal intern eerst doelgroep, merkgevoel, visuele stijl, layoutstrategie, wow-factor en conversiedoel. "
-                        "Bouw daarna pas. Schrijf dit interne plan niet uit. "
-
-                        "DESIGN QUALITY: "
-                        "De website moet high-end en premium aanvoelen. "
-                        "Gebruik sterke typografie, duidelijke hiërarchie, veel whitespace, gradients, glows, glassmorphism, shadows en moderne spacing. "
-                        "De hero moet binnen 3 seconden overtuigen. "
-
-                        "PAGE STRUCTURE: "
-                        "Denk in complete website structuur, niet alleen één scherm. "
-                        "Homepage overtuigt en converteert. Extra pagina’s bouwen vertrouwen op. "
-
-                         
-                        "TECHNICAL RULES: "
-                        "Gebruik absolute paths: /project/style.css en /project/app.js. "
-                        "HTML en CSS classes moeten matchen. "
-                        "Geen ontbrekende images, geen default styling, geen markdown, alleen FILE blocks. "
-
-                        "Als output niet high-end is → herschrijf volledig betere versie. "
-
-                        "Output ALLEEN FILE blocks: index.html, style.css, app.js. "
-                        "Geen uitleg. Geen markdown. Geen code fences."
-                    )
-                },
-                {
-                    "role": "user",
-                    "content": (
-                        "DESIGN SYSTEM:\n" + WILBERT_DESIGN_SYSTEM + "\n\n"
-                        "TASK:\n" + task + "\n\n"
-                        "PLAN:\n" + plan + "\n\n"
-                        "DESIGN:\n" + design + "\n\n"
-                        "Lever exact dit formaat:\n"
-                        "FILE: index.html\n"
-                        "<pure html zonder markdown>\n\n"
-                        "FILE: style.css\n"
-                        "<pure css zonder markdown>\n\n"
-                        "FILE: app.js\n"
-                        "<pure javascript zonder markdown>\n"
-                    )
-                }
-            ]
+            "Begin altijd exact met: FILE: index.html"
         )
 
-        output = response.choices[0].message.content or ""
+        frontend_user = (
+            f"DESIGN SYSTEM:\n{WILBERT_DESIGN_SYSTEM}\n\n"
+            f"TAAK:\n{task}\n\n"
+            f"PLAN:\n{plan}\n\n"
+            f"DESIGN INSTRUCTIES:\n{design}\n\n"
+            "Bouw nu de volledige premium website. Output alleen FILE blocks.\n\n"
+            "FILE: index.html\n<html>\n\nFILE: style.css\n<css>\n\nFILE: app.js\n<js>"
+        )
 
-        output = output.replace("```html", "")
-        output = output.replace("```css", "")
-        output = output.replace("```javascript", "")
-        output = output.replace("```js", "")
-        output = output.replace("```", "")
+        frontend_output = self._claude(frontend_system, frontend_user, max_tokens=8000)
 
-        return output.strip()
+        for tag in ["```html", "```css", "```javascript", "```js", "```"]:
+            frontend_output = frontend_output.replace(tag, "")
+
+        # ── STAP 2: Backend via Claude als nodig ──────────────────────────────
+        if not self._needs_backend(task):
+            return frontend_output.strip()
+
+        backend_system = (
+            "Je bent een senior Python/Flask developer. "
+            "Je schrijft een volledige werkende Flask backend voor een website. "
+            "De frontend draait al op /project/ via een bestaande Flask server. "
+
+            "REGELS: "
+            "- Schrijf server.py met Flask routes "
+            "- Gebruik alleen: flask, requests, python-dotenv, supabase, werkzeug "
+            "- Sla data op in Supabase als SUPABASE_URL beschikbaar is, anders lokaal JSON "
+            "- Stuur altijd JSON terug: {'ok': True} of {'ok': False, 'error': '...'} "
+            "- Valideer alle input, duidelijke Nederlandse foutmeldingen "
+            "- CORS headers toevoegen "
+            "- Email via SMTP als SMTP_HOST beschikbaar is "
+            "- Wachtwoorden hashen met werkzeug.security "
+            "- Gebruik os.getenv() voor alle gevoelige data — geen hardcoded keys "
+
+            "Schrijf ook routes.md: simpele Nederlandse uitleg van elke route, "
+            "geen technisch jargon — alsof je het uitlegt aan iemand zonder technische kennis. "
+
+            "Begin exact met: FILE: server.py"
+        )
+
+        backend_user = (
+            f"TAAK:\n{task}\n\n"
+            f"PLAN:\n{plan}\n\n"
+            "Schrijf de volledige werkende Flask backend. "
+            "Daarna routes.md met eenvoudige uitleg.\n\n"
+            "FILE: server.py\n<python>\n\nFILE: routes.md\n<markdown>"
+        )
+
+        backend_output = self._claude(backend_system, backend_user, max_tokens=4000)
+
+        for tag in ["```python", "```markdown", "```md", "```"]:
+            backend_output = backend_output.replace(tag, "")
+
+        return frontend_output.strip() + "\n\n" + backend_output.strip()
