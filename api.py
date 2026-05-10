@@ -717,6 +717,80 @@ def tool_clone_analyze():
     return jsonify({"ok": True, "analysis": analyze_url_for_clone(prompt)})
 
 
+
+# ── BUSINESS ROUTES ───────────────────────────────────────────────────────────
+try:
+    from wilbert_business import invoice_agent, marketing_agent, add_contact, daily_summary, schedule_daily_summary
+
+    @app.route("/business/invoice", methods=["POST"])
+    def business_invoice():
+        data   = request.get_json(silent=True) or {}
+        prompt = data.get("prompt", "") or data.get("message", "")
+        if not prompt:
+            return jsonify({"ok": False, "error": "Geef een factuur beschrijving mee."}), 400
+        return jsonify(invoice_agent(prompt))
+
+    @app.route("/business/invoice/<invoice_number>")
+    def view_invoice(invoice_number):
+        html_file = BASE_DIR / "data" / "invoices" / f"{invoice_number}.html"
+        if not html_file.exists():
+            return f"Factuur {invoice_number} niet gevonden.", 404
+        return html_file.read_text(encoding="utf-8"), 200, {"Content-Type": "text/html"}
+
+    @app.route("/business/invoices")
+    def list_invoices():
+        from wilbert_business import INVOICES_DIR, _load_json
+        items = []
+        for f in sorted(INVOICES_DIR.glob("*.json"), reverse=True):
+            inv = _load_json(f)
+            if inv:
+                subtotal = sum(i["quantity"] * i["unit_price"] for i in inv.get("items", []))
+                total    = subtotal * (1 + inv.get("btw", 21) / 100)
+                items.append({
+                    "number": inv["invoice_number"],
+                    "client": inv["client_name"],
+                    "date":   inv["date"],
+                    "total":  f"euro{total:.2f}",
+                    "url":    f"/business/invoice/{inv['invoice_number']}"
+                })
+        return jsonify({"invoices": items, "count": len(items)})
+
+    @app.route("/business/campaign", methods=["POST"])
+    def business_campaign():
+        data     = request.get_json(silent=True) or {}
+        prompt   = data.get("prompt", "") or data.get("message", "")
+        contacts = data.get("contacts", None)
+        if not prompt:
+            return jsonify({"ok": False, "error": "Geef een campagne beschrijving mee."}), 400
+        return jsonify(marketing_agent(prompt, contacts))
+
+    @app.route("/business/contacts/add", methods=["POST"])
+    def business_add_contact():
+        data  = request.get_json(silent=True) or {}
+        name  = data.get("name", "")
+        email = data.get("email", "")
+        tags  = data.get("tags", [])
+        if not name or not email:
+            return jsonify({"ok": False, "error": "Naam en email zijn verplicht."}), 400
+        return jsonify(add_contact(name, email, tags))
+
+    @app.route("/business/contacts")
+    def list_contacts():
+        from wilbert_business import CONTACTS_DIR, _load_json
+        contacts = _load_json(CONTACTS_DIR / "contacts.json") or []
+        return jsonify({"contacts": contacts, "count": len(contacts)})
+
+    @app.route("/business/summary")
+    def business_summary():
+        send = request.args.get("email", "false").lower() == "true"
+        return jsonify(daily_summary(send_email=send))
+
+    schedule_daily_summary(hour=7, minute=0)
+    print("Business module geladen.")
+
+except ImportError as e:
+    print(f"Business module niet geladen: {e}")
+
 if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
