@@ -100,15 +100,15 @@ class DesignAgent:
             "Gebruik geen vage woorden zoals 'modern' of 'mooi' zonder uit te leggen HOE dat bereikt wordt."
         )
 
-        user = f\"TAAK:\\n{task}\\n\\nPLAN:\\n{plan}\\n\\nMaak nu het volledige design plan.\"
+        user = f"TAAK:\n{task}\n\nPLAN:\n{plan}\n\nMaak nu het volledige design plan."
 
         response = self.client.chat.completions.create(
-            model=\"gpt-4o-mini\",
+            model="gpt-4o-mini",
             temperature=0.3,
             messages=[
-                {\"role\": \"system\", \"content\": system},
-                {\"role\": \"user\", \"content\": user}
+                {"role": "system", "content": system},
+                {"role": "user", "content": user}
             ]
         )
 
-        return response.choices[0].message.content or \"\"
+        return response.choices[0].message.content or ""
