@@ -183,7 +183,7 @@ Begin EXACT met: FILE: index.html"""
             "FILE: app.js\n<javascript met fade-in, smooth scroll, navbar effect>"
         )
 
-        frontend = self._claude(system, user, max_tokens=8000)
+        frontend = self._claude(system, user, max_tokens=3500)
 
         # Markdown fences verwijderen
         for tag in ["```html", "```css", "```javascript", "```js", "```"]:
@@ -211,7 +211,7 @@ Begin EXACT met: FILE: index.html"""
             "Schrijf de volledige Flask backend.\n\n"
             "FILE: server.py\n<python>\n\nFILE: routes.md\n<uitleg>"
         )
-        backend = self._claude(backend_system, backend_user, max_tokens=4000)
+        backend = self._claude(backend_system, backend_user, max_tokens=2000)
 
         for tag in ["```python", "```markdown", "```md", "```"]:
             backend = backend.replace(tag, "")
