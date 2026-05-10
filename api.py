@@ -119,16 +119,34 @@ def _extract_project_name(prompt: str) -> str:
     if m:
         return m.group(1).strip()
 
-    # 4. Fallback
+    # 4. Fallback: eerste drie woorden
     words = prompt.strip().split()[:3]
-    return " ".join(words)
+    name  = " ".join(words)
+
+    # 5. Als naam te generiek is, voeg timestamp toe
+    if not name or name.lower() in ["project", "website", "site", "app", "pagina", "bouw", "maak"]:
+        name = "project-" + datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+
+    return name
 
 
 def _get_named_project_dir(name: str) -> Path:
-    """Geef de map terug voor een specifiek project en maak hem aan."""
-    p = PROJECTS_DIR / _safe_dirname(name)
-    p.mkdir(parents=True, exist_ok=True)
-    return p
+    """
+    Geef de map terug voor een specifiek project.
+    - Als de map al bestaat: voeg timestamp toe zodat we NOOIT overschrijven.
+    - output/project/ mag altijd overschreven worden (laatste preview).
+    - output/projects/<naam>/ is permanent en uniek.
+    """
+    safe      = _safe_dirname(name)
+    candidate = PROJECTS_DIR / safe
+
+    # Bestaat de map al en heeft hij al bestanden? Voeg timestamp toe.
+    if candidate.exists() and any(candidate.iterdir()):
+        safe      = safe + "-" + datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        candidate = PROJECTS_DIR / safe
+
+    candidate.mkdir(parents=True, exist_ok=True)
+    return candidate
 
 # ── GEHEUGEN ──────────────────────────────────────────────────────────────────
 def _default_memory() -> Dict[str, Any]:
