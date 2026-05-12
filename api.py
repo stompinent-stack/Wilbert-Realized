@@ -60,8 +60,8 @@ app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 BASE_DIR     = Path(__file__).resolve().parent
-PROJECT_DIR  = BASE_DIR / "output" / "project"    # /project preview (altijd actief)
-PROJECTS_DIR = BASE_DIR / "output" / "projects"   # per-project mappen
+PROJECT_DIR  = BASE_DIR / "output" / "project"
+PROJECTS_DIR = BASE_DIR / "output" / "projects"
 UPLOAD_DIR   = BASE_DIR / "uploads"
 MEMORY_FILE  = BASE_DIR / "cofounder_memory.json"
 
@@ -89,29 +89,18 @@ ALLOWED_PROJECT_FILES = {
 
 # ── PROJECT MAP HELPERS ───────────────────────────────────────────────────────
 def _safe_dirname(text: str) -> str:
-    """Zet tekst om naar veilige mapnaam, max 40 tekens."""
     cleaned = re.sub(r"[^a-z0-9]+", "-", (text or "project").lower()).strip("-")
     return cleaned[:40] or "project"
 
 
 def _extract_project_name(prompt: str) -> str:
-    """
-    Probeer de projectnaam uit de prompt te halen.
-    Zoekt achtereenvolgens naar:
-    1. Tekst tussen aanhalingstekens  "NovaMark"
-    2. Tekst na genaamd/heet/called   genaamd NovaMark
-    3. Tekst na bouw/maak + hoofdletter  Bouw NovaMark
-    4. Fallback: eerste drie woorden
-    """
     if not prompt:
         return "project"
 
-    # 1. Aanhalingstekens
     m = re.search(r'"([^"]{2,40})"', prompt)
     if m:
         return m.group(1).strip()
 
-    # 2. Na genaamd / heet / called / named / voor
     m = re.search(
         r"(?:genaamd|heet|called|named|voor)\s+([A-Z][a-zA-Z0-9 ]{1,30})",
         prompt
@@ -119,7 +108,6 @@ def _extract_project_name(prompt: str) -> str:
     if m:
         return m.group(1).strip()
 
-    # 3. Na bouw / maak / build / create
     m = re.search(
         r"(?:bouw|maak|build|create)\s+(?:een\s+|een\s+complete\s+|een\s+premium\s+)?([A-Z][a-zA-Z0-9 ]{1,30})",
         prompt
@@ -127,11 +115,9 @@ def _extract_project_name(prompt: str) -> str:
     if m:
         return m.group(1).strip()
 
-    # 4. Fallback: eerste drie woorden
     words = prompt.strip().split()[:3]
     name  = " ".join(words)
 
-    # 5. Als naam te generiek is, voeg timestamp toe
     if not name or name.lower() in ["project", "website", "site", "app", "pagina", "bouw", "maak"]:
         name = "project-" + datetime.utcnow().strftime("%Y%m%d-%H%M%S")
 
@@ -139,16 +125,9 @@ def _extract_project_name(prompt: str) -> str:
 
 
 def _get_named_project_dir(name: str) -> Path:
-    """
-    Geef de map terug voor een specifiek project.
-    - Als de map al bestaat: voeg timestamp toe zodat we NOOIT overschrijven.
-    - output/project/ mag altijd overschreven worden (laatste preview).
-    - output/projects/<naam>/ is permanent en uniek.
-    """
     safe      = _safe_dirname(name)
     candidate = PROJECTS_DIR / safe
 
-    # Bestaat de map al en heeft hij al bestanden? Voeg timestamp toe.
     if candidate.exists() and any(candidate.iterdir()):
         safe      = safe + "-" + datetime.utcnow().strftime("%Y%m%d-%H%M%S")
         candidate = PROJECTS_DIR / safe
@@ -294,22 +273,15 @@ def extract_file_blocks(text: str) -> List[Tuple[str, str]]:
 
 
 def save_project_files(reply: str, project_name: str = None) -> List[str]:
-    """
-    Sla bestanden op in:
-    1. output/projects/<project-naam>/  (per-project, blijft bewaard)
-    2. output/project/                  (altijd, voor /project preview)
-    """
     saved = []
     blocks = extract_file_blocks(reply)
 
     for filename, content in blocks:
-        # 1. Per-project map
         if project_name:
             named = _get_named_project_dir(project_name) / filename
             named.parent.mkdir(parents=True, exist_ok=True)
             named.write_text(content, encoding="utf-8")
 
-        # 2. Preview map
         preview = PROJECT_DIR / filename
         preview.parent.mkdir(parents=True, exist_ok=True)
         preview.write_text(content, encoding="utf-8")
@@ -491,7 +463,6 @@ def memory_route():
 
 @app.route("/projects")
 def list_projects():
-    """Overzicht van alle gebouwde projecten."""
     items = []
     if PROJECTS_DIR.exists():
         for p in sorted(PROJECTS_DIR.iterdir()):
@@ -545,13 +516,13 @@ def chat():
     uploaded = request.files.get("file")
     has_file = uploaded is not None
 
-   # DIRECTE FOTO VRAGEN
-if is_photo_request(prompt):
-    return jsonify({
-        "intent": "image",
-        "reply": answer_direct_photo_request(prompt),
-        "type": "photo"
-    })
+    # DIRECTE FOTO VRAGEN
+    if is_photo_request(prompt):
+        return jsonify({
+            "intent": "image",
+            "reply": answer_direct_photo_request(prompt),
+            "type": "photo"
+        })
 
     memory = load_memory()
     result = mode_agent.run(prompt)
@@ -721,8 +692,6 @@ def tool_clone_analyze():
     data   = request.get_json(silent=True) or {}
     prompt = data.get("prompt", "") or data.get("url", "")
     return jsonify({"ok": True, "analysis": analyze_url_for_clone(prompt)})
-
-
 
 # ── BUSINESS ROUTES ───────────────────────────────────────────────────────────
 try:
