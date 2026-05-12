@@ -545,15 +545,13 @@ def chat():
     uploaded = request.files.get("file")
     has_file = uploaded is not None
 
-    # Directe afbeeldingsverzoeken (niet bij bouwen)
-    is_build     = any(w in msg for w in ["maak", "bouw", "website", "site", "app", "project", "pagina"])
-    is_image_req = any(p in msg for p in ["laat een foto zien", "toon een foto", "foto van", "afbeelding van"])
-    if is_image_req and not is_build:
-        return jsonify({
-            "intent": "image",
-            "reply":  "Hier is een afbeelding:",
-            "images": ["https://images.unsplash.com/photo-1502744688674-c619d1586c9e"]
-        })
+   # DIRECTE FOTO VRAGEN
+if is_photo_request(prompt):
+    return jsonify({
+        "intent": "image",
+        "reply": answer_direct_photo_request(prompt),
+        "type": "photo"
+    })
 
     memory = load_memory()
     result = mode_agent.run(prompt)
