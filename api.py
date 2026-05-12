@@ -8,6 +8,14 @@ from datetime import datetime
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+from photo_engine import (
+    fetch_photos_for_prompt,
+    has_photo_intent_in_build,
+    inject_photos_into_html,
+    build_photo_context_for_ai,
+    is_photo_request,
+    answer_direct_photo_request,
+)
 
 import requests
 from bs4 import BeautifulSoup
