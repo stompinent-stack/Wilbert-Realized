@@ -1,21 +1,31 @@
+import os
+
+
 class ResearchAgent:
     def __init__(self, client):
         self.client = client
 
-    def run(self, task, memory_context=""):
+    def run(self, task: str, memory_summary: str = "") -> str:
         response = self.client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
             temperature=0.3,
             messages=[
                 {
                     "role": "system",
                     "content": (
-                        "Je bent Wilbert ResearchAgent: product strategist, marktdenker en planner. "
-                        "Maak een duidelijke structuur: doel, doelgroep, aanbod, sections, functies, risico's en MVP-plan. "
-                        "Antwoord compact en praktisch in Nederlands."
-                    )
+                        "Je bent een research expert voor Wilbert. "
+                        "Analyseer de taak en geef een concreet plan: "
+                        "doelgroep, structuur, functies, technologie, stijl. "
+                        "Antwoord in het Nederlands. Bondig en actionable."
+                    ),
                 },
-                {"role": "user", "content": "MEMORY:\n" + memory_context + "\n\nTASK:\n" + task}
-            ]
+                {
+                    "role": "user",
+                    "content": (
+                        f"Taak:\n{task}\n\n"
+                        f"Geheugen:\n{memory_summary}"
+                    ),
+                },
+            ],
         )
         return response.choices[0].message.content or ""
