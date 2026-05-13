@@ -5,44 +5,34 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn api:app
     envVars:
-      # ── OpenAI (verplicht) ──────────────────────────────────
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_MODEL
         value: gpt-4o-mini
-
-      # ── Pexels foto API (nieuw — verplicht voor foto's) ─────
-      # Gratis sleutel aanmaken op: https://www.pexels.com/api/
-      - key: PEXELS_API_KEY
+      - key: ANTHROPIC_API_KEY
         sync: false
-
-      # ── Supabase (memory/database) ──────────────────────────
       - key: SUPABASE_URL
         sync: false
-      - key: SUPABASE_SERVICE_KEY
+      - key: SUPABASE_KEY
         sync: false
-
-      # ── Web search (optioneel) ──────────────────────────────
       - key: SERPAPI_KEY
         sync: false
-
-      # ── Email (optioneel) ───────────────────────────────────
+      - key: PEXELS_API_KEY
+        sync: false
       - key: SMTP_HOST
         sync: false
+      - key: SMTP_PORT
+        value: "587"
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASS
         sync: false
       - key: EMAIL_FROM
         sync: false
-
-      # ── Telegram (optioneel) ────────────────────────────────
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_CHAT_ID
         sync: false
-
-      # ── Server ──────────────────────────────────────────────
       - key: FLASK_DEBUG
         value: "0"
       - key: PORT
