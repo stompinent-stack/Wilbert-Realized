@@ -1,95 +1,126 @@
+"""
+tools/realtime_tool.py — Wilbert's realtime intelligence tool.
+Geeft altijd een bruikbaar antwoord terug. Nooit raw JSON naar de gebruiker.
+"""
+
 import os
-import requests
-from datetime import datetime
-from zoneinfo import ZoneInfo
+import re
+from datetime import datetime, timezone, timedelta
+from typing import Any, Dict
 
 
-def get_time(timezone="Europe/Amsterdam"):
-    try:
-        now = datetime.now(ZoneInfo(timezone))
+# Tijdzone offsets voor veelgevraagde steden
+_TZ_OFFSETS: Dict[str, int] = {
+    "amsterdam": 1, "nederland": 1, "rotterdam": 1, "den haag": 1,
+    "london": 0, "londen": 0,
+    "new york": -5, "los angeles": -8, "chicago": -6,
+    "tokyo": 9, "japan": 9,
+    "dubai": 4, "abu dhabi": 4,
+    "sydney": 10, "australie": 10,
+    "beijing": 8, "shanghai": 8, "china": 8,
+    "singapore": 8,
+    "mumbai": 5, "india": 5,
+    "moscow": 3, "moskou": 3,
+    "parijs": 1, "paris": 1,
+    "berlijn": 1, "berlin": 1,
+    "madrid": 1, "rome": 1,
+    "marokko": 1, "casablanca": 1,
+    "suriname": -3, "paramaribo": -3,
+}
+
+
+def _detect_city(prompt: str) -> str | None:
+    text = prompt.lower()
+    for city in _TZ_OFFSETS:
+        if city in text:
+            return city
+    return None
+
+
+def _time_for_city(city: str) -> Dict[str, str]:
+    offset_hours = _TZ_OFFSETS.get(city, 0)
+    tz           = timezone(timedelta(hours=offset_hours))
+    now          = datetime.now(tz)
+    sign         = "+" if offset_hours >= 0 else ""
+    return {
+        "city":     city.title(),
+        "time":     now.strftime("%H:%M"),
+        "date":     now.strftime("%d %B %Y"),
+        "timezone": f"UTC{sign}{offset_hours}",
+        "full":     now.strftime("%A %d %B %Y om %H:%M"),
+    }
+
+
+def realtime_intelligence(prompt: str) -> Dict[str, Any]:
+    """
+    Verwerkt realtime vragen. Geeft altijd een dict terug met een
+    'summary' sleutel die direct te tonen is — nooit raw JSON.
+
+    De /chat handler in api.py toont rt['summary'] als het beschikbaar is,
+    of laat OpenAI het samenvatten via json.dumps(rt).
+    """
+    text = prompt.lower()
+
+    # ── Tijdvraag ─────────────────────────────────────────────────────────────
+    time_keywords = ["hoe laat", "tijd", "what time", "time in", "laat is het"]
+    if any(kw in text for kw in time_keywords):
+        city = _detect_city(text)
+        if city:
+            info    = _time_for_city(city)
+            summary = f"Het is nu **{info['time']}** in {info['city']} ({info['timezone']}) — {info['date']}."
+        else:
+            # Lokale servertijd als fallback
+            now     = datetime.now()
+            summary = f"Het is nu {now.strftime('%H:%M')} (servertijd, UTC+0)."
+            info    = {"time": now.strftime("%H:%M"), "date": now.strftime("%d %B %Y"), "timezone": "UTC"}
+
         return {
-            "ok": True,
-            "timezone": timezone,
-            "time": now.strftime("%H:%M"),
-            "date": now.strftime("%Y-%m-%d")
+            "type":    "time",
+            "summary": summary,
+            **info,
         }
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
 
+    # ── Nieuws/trend vraag — SerpAPI indien beschikbaar ──────────────────────
+    serpapi_key = os.getenv("SERPAPI_KEY", "").strip()
+    if serpapi_key:
+        try:
+            import requests
+            res = requests.get(
+                "https://serpapi.com/search.json",
+                params={"q": prompt, "api_key": serpapi_key, "num": 5, "engine": "google", "tbs": "qdr:d"},
+                timeout=8,
+            ).json()
+            items = []
+            for r in res.get("organic_results", [])[:4]:
+                title   = r.get("title", "")
+                snippet = r.get("snippet", "")
+                source  = r.get("source", "")
+                if title:
+                    items.append(f"• {title}" + (f" ({source})" if source else "") + (f": {snippet[:120]}" if snippet else ""))
 
-def google_live_search(query, num=5):
-    key = os.getenv("SERPAPI_KEY")
-    if not key:
-        return {"ok": False, "error": "SERPAPI_KEY ontbreekt in .env"}
+            if items:
+                summary = f"Realtime resultaten voor '{prompt}':\n\n" + "\n".join(items)
+            else:
+                summary = f"Geen actuele resultaten gevonden voor '{prompt}'."
 
-    res = requests.get(
-        "https://serpapi.com/search.json",
-        params={
-            "engine": "google",
-            "q": query,
-            "api_key": key,
-            "num": num
-        },
-        timeout=20
-    )
+            return {
+                "type":    "news",
+                "summary": summary,
+                "query":   prompt,
+                "results": items,
+            }
+        except Exception as e:
+            return {
+                "type":    "error",
+                "summary": f"Kon geen realtime data ophalen: {e}",
+            }
 
-    data = res.json()
-    results = []
-
-    for item in data.get("organic_results", [])[:num]:
-        results.append({
-            "title": item.get("title"),
-            "link": item.get("link"),
-            "snippet": item.get("snippet")
-        })
-
-    return {"ok": True, "query": query, "results": results}
-
-
-def google_news_search(query, num=5):
-    key = os.getenv("SERPAPI_KEY")
-    if not key:
-        return {"ok": False, "error": "SERPAPI_KEY ontbreekt in .env"}
-
-    res = requests.get(
-        "https://serpapi.com/search.json",
-        params={
-            "engine": "google_news",
-            "q": query,
-            "api_key": key,
-            "num": num
-        },
-        timeout=20
-    )
-
-    data = res.json()
-    results = []
-
-    for item in data.get("news_results", [])[:num]:
-        results.append({
-            "title": item.get("title"),
-            "link": item.get("link"),
-            "source": item.get("source"),
-            "date": item.get("date"),
-            "snippet": item.get("snippet")
-        })
-
-    return {"ok": True, "query": query, "results": results}
-
-
-def realtime_intelligence(query):
-    q = query.lower()
-
-    if "tijd" in q or "hoe laat" in q or "time" in q:
-        if "japan" in q:
-            return get_time("Asia/Tokyo")
-        if "amerika" in q or "new york" in q:
-            return get_time("America/New_York")
-        if "londen" in q or "uk" in q:
-            return get_time("Europe/London")
-        return get_time("Europe/Amsterdam")
-
-    if "nieuws" in q or "news" in q or "laatste" in q:
-        return google_news_search(query)
-
-    return google_live_search(query)
+    # ── Geen API beschikbaar ──────────────────────────────────────────────────
+    return {
+        "type":    "unavailable",
+        "summary": (
+            f"Ik wil graag realtime informatie ophalen over '{prompt}', "
+            "maar SERPAPI_KEY is nog niet ingesteld. "
+            "Voeg die toe in je .env of Render environment variables."
+        ),
+    }
