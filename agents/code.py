@@ -80,7 +80,12 @@ BELANGRIJK:
 Je krijgt een design plan van de DesignAgent.
 Volg de STYLE_DIRECTION uit dat design plan.
 Forceer NIET altijd dezelfde dark premium stijl.
-Als het design plan geen duidelijke stijl bevat, gebruik dan Dark Premium als fallback.
+Als het design plan geen duidelijke stijl bevat, kies zelf een stijl passend bij taak en doelgroep. 
+Gebruik Dark Premium alleen als het echt logisch past.
+Je MOET alle nav-secties volledig bouwen.
+Elke nav-link moet corresponderen met een zichtbare sectie met echte content.
+Geen lege 100vh vlakken.
+Als output te lang wordt, verkort CSS, maar laat nooit HTML-secties leeg.
 
 Je krijgt ook een volledig Wilbert design system mee.
 Gebruik de CSS EXACT als basis en bouw daar veilig op voort.
