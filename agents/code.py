@@ -1,34 +1,38 @@
 import os
 import re
+
 import anthropic
 
 
 class CodeAgent:
     def __init__(self, client):
-        self.client = client
+        self.client     = client
         self._anthropic = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
     def _claude(self, system: str, user: str, max_tokens: int = 8000) -> str:
         response = self._anthropic.messages.create(
             model="claude-sonnet-4-5-20250929",
             max_tokens=max_tokens,
-            messages=[{"role": "user", "content": f"<system>{system}</system>\n\n{user}"}]
+            messages=[
+                {"role": "user", "content": f"<system>{system}</system>\n\n{user}"},
+            ],
         )
         return response.content[0].text or ""
 
     def _needs_backend(self, task: str) -> bool:
-        return any(word in task.lower() for word in [
-            "formulier", "form", "contact", "login", "register",
-            "database", "opslaan", "bestelling", "order", "betaling",
-            "payment", "checkout", "dashboard", "admin", "gebruiker",
-            "webshop", "shop", "winkel", "boek", "reserveer", "afspraak",
-            "upload", "zoek", "search", "inloggen", "wachtwoord", "password"
-        ])
+        return any(
+            word in task.lower()
+            for word in [
+                "formulier", "form", "contact", "login", "register",
+                "database", "opslaan", "bestelling", "order", "betaling",
+                "payment", "checkout", "dashboard", "admin", "gebruiker",
+                "webshop", "shop", "winkel", "boek", "reserveer", "afspraak",
+                "upload", "zoek", "search", "inloggen", "wachtwoord", "password",
+            ]
+        )
 
     def _fix_paths(self, html: str) -> str:
-        """Corrigeer ALLE mogelijke CSS/JS pad variaties naar de juiste absolute paden."""
-
-        # Directe vervangingen voor bekende fouten
+        """Corrigeer ALLE mogelijke CSS/JS pad-variaties naar de juiste absolute paden."""
         fixes = [
             # CSS fouten
             ('href="/project/style.cs"',  'href="/project/style.css"'),
@@ -55,20 +59,20 @@ class CodeAgent:
         html = re.sub(
             r'href=["\'](?!http|https|/project/)([^"\']+\.css)["\']',
             r'href="/project/\1"',
-            html
+            html,
         )
         # Regex fix voor alle overige relatieve JS paden
         html = re.sub(
             r'src=["\'](?!http|https|/project/)([^"\']+\.js)["\']',
             r'src="/project/\1"',
-            html
+            html,
         )
         return html
 
     def run(self, task: str, plan: str, design: str) -> str:
         from agents.design_system import WILBERT_DESIGN_SYSTEM
 
-        # ── FRONTEND via Claude Sonnet ────────────────────────────────────────
+        # ── Frontend via Claude Sonnet ─────────────────────────────────────────
         system = """Je bent een premium frontend developer, creative director en senior UI engineer.
 Je bouwt premium moderne websites op het niveau van Framer, Linear, Vercel, Stripe en Apple.
 
@@ -85,45 +89,41 @@ ABSOLUTE REGELS:
 1. CSS link ALTIJD exact: <link rel="stylesheet" href="/project/style.css">
 2. JS script ALTIJD exact: <script src="/project/app.js"></script>
 3. Kopieer het volledige design system CSS in style.css
-4. Gebruik de bestaande design system klassen waar mogelijk: .hero, .glass-card, .btn-primary, .bento-grid, .fade-up etc.
-5. Hero structuur bij voorkeur: .hero > .hero-inner > .hero-badge + h1.gradient-text + p + .hero-btns
-6. Voeg .orb.orb-1 en .orb.orb-2 toe in hero wanneer dit past bij de gekozen stijl
+4. Gebruik de bestaande design system klassen waar mogelijk
+5. Hero structuur: .hero > .hero-inner > .hero-badge + h1.gradient-text + p + .hero-btns
+6. Voeg .orb.orb-1 en .orb.orb-2 toe in hero wanneer dit past bij de stijl
 7. Navbar: fixed of sticky, premium uitstraling, .nav-logo + .nav-links + .nav-right
-8. Cards moeten premium zijn en bij voorkeur .glass-card gebruiken
-9. Secties moeten duidelijke hiërarchie hebben: .section-header > .section-tag + .section-title + .section-sub
+8. Cards: premium, bij voorkeur .glass-card
+9. Secties: duidelijke hiërarchie via .section-header > .section-tag + .section-title + .section-sub
 10. Voeg .fade-up toe op belangrijke cards/secties voor scroll animatie
 
 DESIGN KWALITEIT:
 - Maak geen generieke AI-template website
 - Elke sectie moet bewust ontworpen voelen
-- Zorg voor sterke visuele hiërarchie
-- Zorg voor duidelijke CTA flow
-- Zorg voor goede spacing en max-widths
-- Zorg dat de website responsive en mobiel sterk is
-- Zorg dat buttons, cards, forms en secties consistent voelen
-- Gebruik genoeg whitespace
-- Gebruik premium micro-interactions
-- Gebruik subtiele animaties, geen overdreven effecten
+- Sterke visuele hiërarchie
+- Duidelijke CTA flow
+- Goede spacing en max-widths
+- Responsive en mobiel sterk
+- Consistente buttons, cards, forms en secties
+- Genoeg whitespace
+- Premium micro-interactions
+- Subtiele animaties, geen overdreven effecten
 
 STYLE_DIRECTION:
-Volg de stijl die de DesignAgent heeft gekozen.
-Bijvoorbeeld:
-- Minimal SaaS: lichte, cleane interface met veel witruimte
-- Dark Premium: donker, neon accenten, glow effecten
+Volg de stijl die de DesignAgent heeft gekozen:
+- Minimal SaaS: licht, clean, veel witruimte
+- Dark Premium: donker, neon accenten, glow
 - Playful Startup: kleurrijk, bold, energiek
 - Luxury Brand: zwart/goud, elegante typography
 - Futuristic AI: donkerblauw/paars, tech gevoel
 - Editorial Clean: strak grid, sterke typografie
 
-Als de gekozen stijl lichter is dan dark premium, mag je lichte achtergronden gebruiken.
-Maar de website moet altijd premium, modern en professioneel blijven.
-
 KLEUREN:
 - Gebruik kleuren uit het design plan
-- Als kleuren ontbreken, kies zelf een professioneel palet passend bij de taak
-- Gebruik CSS variables waar logisch
-- Zorg voor goed contrast
-- Gebruik gradients alleen waar ze waarde toevoegen
+- Als kleuren ontbreken: kies professioneel palet passend bij de taak
+- CSS variables waar logisch
+- Goed contrast
+- Gradients alleen waar ze waarde toevoegen
 
 TYPOGRAPHY:
 - Grote krachtige headings
@@ -133,9 +133,9 @@ TYPOGRAPHY:
 - Responsive font sizes voor mobiel
 
 LAYOUT:
-- Bouw een complete landing page of app interface passend bij de taak
-- Gebruik duidelijke secties
-- Gebruik grids, bento layouts of cards waar passend
+- Complete landing page of app interface passend bij de taak
+- Duidelijke secties
+- Grids, bento layouts of cards waar passend
 - Geen lege secties
 - Geen placeholder tekst zoals lorem ipsum
 - Geen onafgemaakte onderdelen
@@ -143,13 +143,13 @@ LAYOUT:
 FORMULIEREN:
 fetch() POST naar /api/contact — nooit action= op forms.
 Als een formulier nodig is:
-- mooie labels
-- ruime inputs
-- focus states
-- loading state
-- success message
-- error message
-- disabled submit tijdens verzending
+- Mooie labels
+- Ruime inputs
+- Focus states
+- Loading state
+- Success message
+- Error message
+- Disabled submit tijdens verzending
 
 INTERACTIES:
 - Smooth scroll
@@ -189,10 +189,10 @@ Begin EXACT met: FILE: index.html"""
         for tag in ["```html", "```css", "```javascript", "```js", "```"]:
             frontend = frontend.replace(tag, "")
 
-        # ── KRITIEKE FIX: Corrigeer alle CSS/JS paden automatisch ─────────────
+        # Corrigeer alle CSS/JS paden automatisch
         frontend = self._fix_paths(frontend)
 
-        # ── BACKEND (alleen als nodig) ─────────────────────────────────────────
+        # ── Backend (alleen als nodig) ─────────────────────────────────────────
         if not self._needs_backend(task):
             return frontend.strip()
 
