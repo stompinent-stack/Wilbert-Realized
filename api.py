@@ -103,14 +103,14 @@ def _extract_project_name(prompt: str) -> str:
 
     m = re.search(
         r"(?:genaamd|heet|called|named|voor)\s+([A-Z][a-zA-Z0-9 ]{1,30})",
-        prompt
+        prompt,
     )
     if m:
         return m.group(1).strip()
 
     m = re.search(
         r"(?:bouw|maak|build|create)\s+(?:een\s+|een\s+complete\s+|een\s+premium\s+)?([A-Z][a-zA-Z0-9 ]{1,30})",
-        prompt
+        prompt,
     )
     if m:
         return m.group(1).strip()
@@ -135,6 +135,7 @@ def _get_named_project_dir(name: str) -> Path:
     candidate.mkdir(parents=True, exist_ok=True)
     return candidate
 
+
 # ── GEHEUGEN ──────────────────────────────────────────────────────────────────
 def _default_memory() -> Dict[str, Any]:
     return {
@@ -147,8 +148,8 @@ def _default_memory() -> Dict[str, Any]:
         "tasks": [],
         "tools": {
             "email": False, "telegram": False,
-            "voice": True, "vision": True, "web": True
-        }
+            "voice": True, "vision": True, "web": True,
+        },
     }
 
 
@@ -178,9 +179,9 @@ def remember(memory: Dict[str, Any], role: str, content: str) -> None:
     if not content:
         return
     memory["history"].append({
-        "role": role,
+        "role":    role,
         "content": content,
-        "time": datetime.utcnow().isoformat()
+        "time":    datetime.utcnow().isoformat(),
     })
     memory["history"] = memory["history"][-80:]
 
@@ -198,10 +199,10 @@ def update_structured_memory(memory: Dict[str, Any], prompt: str, intent: str) -
         memory["insights"] = memory["insights"][-100:]
     if intent in {"build", "clone"}:
         memory["projects"].append({
-            "title": clean[:90],
-            "type": intent,
+            "title":  clean[:90],
+            "type":   intent,
             "status": "gebouwd",
-            "time": datetime.utcnow().isoformat()
+            "time":   datetime.utcnow().isoformat(),
         })
         memory["projects"] = memory["projects"][-50:]
     if any(w in lower for w in ["onthoud", "besluit", "afspraak", "decision"]):
@@ -215,18 +216,22 @@ def memory_summary(memory: Dict[str, Any]) -> str:
         f"{i['role']}: {i['content']}"
         for i in memory.get("history", [])[-16:]
     ]
-    return json.dumps({
-        "user":         memory.get("user", {}),
-        "insights":     memory.get("insights", [])[-20:],
-        "projects":     memory.get("projects", [])[-10:],
-        "decisions":    memory.get("decisions", [])[-10:],
-        "recent_history": recent
-    }, ensure_ascii=False, indent=2)
+    return json.dumps(
+        {
+            "user":           memory.get("user", {}),
+            "insights":       memory.get("insights", [])[-20:],
+            "projects":       memory.get("projects", [])[-10:],
+            "decisions":      memory.get("decisions", [])[-10:],
+            "recent_history": recent,
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
 
 
 def wilbert_system_prompt(memory: Dict[str, Any], intent: str) -> str:
     user_name = memory.get("user", {}).get("name", "")
-    greeting = f"De gebruiker heet {user_name}. " if user_name else ""
+    greeting  = f"De gebruiker heet {user_name}. " if user_name else ""
     return (
         "Je bent Wilbert — warme, loyale, scherpe AI cofounder, adviseur, bouwer en vriend.\n"
         f"{greeting}"
@@ -240,6 +245,7 @@ def wilbert_system_prompt(memory: Dict[str, Any], intent: str) -> str:
         "- Spreek als Wilbert, niet als generieke assistent\n"
         "- Houd antwoorden bondig tenzij detail gevraagd wordt\n"
     )
+
 
 # ── BESTAND VERWERKING ────────────────────────────────────────────────────────
 def _clean_code(content: str) -> str:
@@ -259,7 +265,7 @@ def extract_file_blocks(text: str) -> List[Tuple[str, str]]:
         part = part.strip()
         if not part:
             continue
-        lines = part.splitlines()
+        lines    = part.splitlines()
         if not lines:
             continue
         filename = secure_filename(lines[0].strip())
@@ -273,7 +279,7 @@ def extract_file_blocks(text: str) -> List[Tuple[str, str]]:
 
 
 def save_project_files(reply: str, project_name: str = None) -> List[str]:
-    saved = []
+    saved  = []
     blocks = extract_file_blocks(reply)
 
     for filename, content in blocks:
@@ -290,6 +296,7 @@ def save_project_files(reply: str, project_name: str = None) -> List[str]:
 
     return saved
 
+
 # ── TOOLS ─────────────────────────────────────────────────────────────────────
 def send_email_tool(to: str, subject: str, body: str) -> Dict[str, Any]:
     host     = os.getenv("SMTP_HOST")
@@ -299,7 +306,7 @@ def send_email_tool(to: str, subject: str, body: str) -> Dict[str, Any]:
     sender   = os.getenv("EMAIL_FROM") or user
     if not all([host, user, password, sender, to]):
         return {"ok": False, "error": "Email niet geconfigureerd. Vul SMTP_ vars in Render."}
-    msg = EmailMessage()
+    msg            = EmailMessage()
     msg["From"]    = sender
     msg["To"]      = to
     msg["Subject"] = subject
@@ -328,12 +335,18 @@ def analyze_image_tool(file_path: Path, prompt: str) -> str:
     resp   = client.chat.completions.create(
         model=os.getenv("VISION_MODEL", "gpt-4o-mini"),
         messages=[
-            {"role": "system", "content": "Je bent Wilbert Vision. Analyseer afbeeldingen praktisch. Antwoord in het Nederlands."},
-            {"role": "user", "content": [
-                {"type": "text",      "text": prompt or "Analyseer deze afbeelding."},
-                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}}
-            ]}
-        ]
+            {
+                "role":    "system",
+                "content": "Je bent Wilbert Vision. Analyseer afbeeldingen praktisch. Antwoord in het Nederlands.",
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text",      "text": prompt or "Analyseer deze afbeelding."},
+                    {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
+                ],
+            },
+        ],
     )
     return resp.choices[0].message.content or "Kon de afbeelding niet analyseren."
 
@@ -366,9 +379,15 @@ def analyze_url_for_clone(prompt: str) -> str:
         model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
         temperature=0.2,
         messages=[
-            {"role": "system", "content": "Analyseer een website op layout, stijl en functies. Bouw een eigen originele versie. Antwoord in Nederlands."},
-            {"role": "user",   "content": f"Prompt:\n{prompt}\n\nURL data:\n{json.dumps(data, ensure_ascii=False)[:12000]}"}
-        ]
+            {
+                "role":    "system",
+                "content": "Analyseer een website op layout, stijl en functies. Bouw een eigen originele versie. Antwoord in Nederlands.",
+            },
+            {
+                "role":    "user",
+                "content": f"Prompt:\n{prompt}\n\nURL data:\n{json.dumps(data, ensure_ascii=False)[:12000]}",
+            },
+        ],
     )
     return resp.choices[0].message.content or ""
 
@@ -381,7 +400,7 @@ def web_intelligence(prompt: str) -> str:
         search  = requests.get(
             "https://serpapi.com/search.json",
             params={"q": prompt, "api_key": key, "engine": "google", "num": 5},
-            timeout=20
+            timeout=20,
         ).json()
         results = []
         for r in search.get("organic_results", [])[:3]:
@@ -390,20 +409,31 @@ def web_intelligence(prompt: str) -> str:
                 continue
             try:
                 page = read_url_tool(url)
-                results.append({"title": r.get("title"), "url": url, "summary": page.get("text_sample", "")[:1000]})
+                results.append({
+                    "title":   r.get("title"),
+                    "url":     url,
+                    "summary": page.get("text_sample", "")[:1000],
+                })
             except Exception:
                 continue
         resp = client.chat.completions.create(
             model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
             temperature=0.3,
             messages=[
-                {"role": "system", "content": "Analyseer zoekresultaten en geef strategisch inzicht in het Nederlands."},
-                {"role": "user",   "content": json.dumps(results, ensure_ascii=False)}
-            ]
+                {
+                    "role":    "system",
+                    "content": "Analyseer zoekresultaten en geef strategisch inzicht in het Nederlands.",
+                },
+                {
+                    "role":    "user",
+                    "content": json.dumps(results, ensure_ascii=False),
+                },
+            ],
         )
         return resp.choices[0].message.content or ""
     except Exception as e:
         return f"Web research fout: {e}"
+
 
 # ── SUPABASE GEHEUGEN ─────────────────────────────────────────────────────────
 def get_supabase_memory(user_id: str = "default") -> str:
@@ -432,12 +462,13 @@ def save_supabase_message(prompt: str, reply: str, user_id: str = "default") -> 
         return
     try:
         _supabase.table("messages").insert({
-            "user_id": user_id,
-            "message": prompt,
-            "response": reply
+            "user_id":  user_id,
+            "message":  prompt,
+            "response": reply,
         }).execute()
     except Exception as e:
         print("Supabase save error:", e)
+
 
 # ── ROUTES ────────────────────────────────────────────────────────────────────
 @app.route("/")
@@ -452,7 +483,7 @@ def health():
         "name":        "Wilbert",
         "version":     "2.1",
         "supabase":    _supabase is not None,
-        "project_dir": str(PROJECT_DIR)
+        "project_dir": str(PROJECT_DIR),
     })
 
 
@@ -470,7 +501,7 @@ def list_projects():
                 items.append({
                     "name":  p.name,
                     "url":   f"/projects/{p.name}",
-                    "files": [f.name for f in p.iterdir() if f.is_file()]
+                    "files": [f.name for f in p.iterdir() if f.is_file()],
                 })
     return jsonify({"projects": items})
 
@@ -516,12 +547,12 @@ def chat():
     uploaded = request.files.get("file")
     has_file = uploaded is not None
 
-    # DIRECTE FOTO VRAGEN
+    # ── Directe fotovragen ────────────────────────────────────────────────────
     if is_photo_request(prompt):
         return jsonify({
             "intent": "image",
-            "reply": answer_direct_photo_request(prompt),
-            "type": "photo"
+            "reply":  answer_direct_photo_request(prompt),
+            "type":   "photo",
         })
 
     memory = load_memory()
@@ -546,14 +577,37 @@ def chat():
         # ── Website bouwen ────────────────────────────────────────────────────
         elif intent == "build":
             project_name = _extract_project_name(prompt)
-            plan         = research_agent.run(prompt, memory_summary(memory))
-            design       = design_agent.run(prompt, plan)
-            raw_code     = code_agent.run(f"{prompt}\n\nMODE:\n{mode}", plan, design)
-            saved        = save_project_files(raw_code, project_name)
+
+            # Foto's ophalen als de prompt dat vraagt
+            photos       = []
+            photo_ctx    = ""
+            if has_photo_intent_in_build(prompt):
+                photos    = fetch_photos_for_prompt(prompt, max_photos=4)
+                photo_ctx = build_photo_context_for_ai(photos)
+
+            plan     = research_agent.run(prompt, memory_summary(memory))
+            design   = design_agent.run(prompt, plan)
+            raw_code = code_agent.run(
+                f"{prompt}\n\nMODE:\n{mode}\n\n{photo_ctx}",
+                plan,
+                design,
+            )
+
+            # Foto's injecteren in HTML als fallback
+            if photos:
+                blocks = extract_file_blocks(raw_code)
+                new_blocks = []
+                for fname, content in blocks:
+                    if fname == "index.html":
+                        content = inject_photos_into_html(content, photos)
+                    new_blocks.append(f"FILE: {fname}\n{content}")
+                raw_code = "\n\n".join(new_blocks)
+
+            saved = save_project_files(raw_code, project_name)
             if saved:
                 safe_name = _safe_dirname(project_name)
-                reply = (
-                    f"Klaar! '{project_name}' is gebouwd en opgeslagen in zijn eigen map. "
+                reply     = (
+                    f"Klaar! '{project_name}' is gebouwd en opgeslagen. "
                     f"Bekijk via /project of /projects/{safe_name}"
                 )
                 response_payload = {
@@ -563,7 +617,7 @@ def chat():
                     "preview_url":  "/project",
                     "project_url":  f"/projects/{safe_name}",
                     "project_name": project_name,
-                    "files":        saved
+                    "files":        saved,
                 }
             else:
                 reply = "Ik probeerde te bouwen maar kon geen bestanden opslaan. Probeer opnieuw."
@@ -578,8 +632,12 @@ def chat():
                     existing += f"\n\nFILE: {name}\n{p.read_text(encoding='utf-8')[:12000]}"
             plan     = research_agent.run("Improve: " + prompt, memory_summary(memory))
             design   = design_agent.run(prompt, plan)
-            raw_code = code_agent.run(f"{prompt}\n\nBestaand project:\n{existing}", plan, design)
-            saved    = save_project_files(raw_code, project_name)
+            raw_code = code_agent.run(
+                f"{prompt}\n\nBestaand project:\n{existing}",
+                plan,
+                design,
+            )
+            saved = save_project_files(raw_code, project_name)
             if saved:
                 reply = f"Klaar! '{project_name}' is verbeterd."
                 response_payload = {
@@ -587,7 +645,7 @@ def chat():
                     "intent":      intent,
                     "type":        "build_complete",
                     "preview_url": "/project",
-                    "files":       saved
+                    "files":       saved,
                 }
             else:
                 reply = "Kon de website niet verbeteren. Probeer opnieuw."
@@ -600,9 +658,16 @@ def chat():
             if urls and any(w in msg for w in build_words):
                 project_name = _extract_project_name(prompt)
                 plan         = research_agent.run("Clone: " + clone_analysis, memory_summary(memory))
-                design       = design_agent.run(prompt, f"{plan}\n\nClone analysis:\n{clone_analysis}")
-                raw_code     = code_agent.run(f"{prompt}\n\nClone analysis:\n{clone_analysis}", plan, design)
-                saved        = save_project_files(raw_code, project_name)
+                design       = design_agent.run(
+                    prompt,
+                    f"{plan}\n\nClone analysis:\n{clone_analysis}",
+                )
+                raw_code = code_agent.run(
+                    f"{prompt}\n\nClone analysis:\n{clone_analysis}",
+                    plan,
+                    design,
+                )
+                saved = save_project_files(raw_code, project_name)
                 if saved:
                     reply = f"Klaar! Eigen versie van '{project_name}' gebouwd op basis van de URL."
                     response_payload = {
@@ -610,7 +675,7 @@ def chat():
                         "intent":      intent,
                         "type":        "build_complete",
                         "preview_url": "/project",
-                        "files":       saved
+                        "files":       saved,
                     }
                 else:
                     reply = clone_analysis
@@ -622,7 +687,9 @@ def chat():
             reply = web_intelligence(prompt)
 
         # ── Realtime info ─────────────────────────────────────────────────────
-        elif _realtime_available and any(w in msg for w in ["hoe laat", "tijd", "nieuws", "live", "trend"]):
+        elif _realtime_available and any(
+            w in msg for w in ["hoe laat", "tijd", "nieuws", "live", "trend"]
+        ):
             rt = realtime_intelligence(prompt)
             if isinstance(rt, dict) and rt.get("time"):
                 reply = f"Het is nu {rt['time']} in {rt['timezone']} op {rt['date']}."
@@ -631,23 +698,34 @@ def chat():
                     model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
                     temperature=0.3,
                     messages=[
-                        {"role": "system", "content": "Vat realtime info samen in het Nederlands."},
-                        {"role": "user",   "content": json.dumps(rt, ensure_ascii=False)}
-                    ]
+                        {
+                            "role":    "system",
+                            "content": "Vat realtime info samen in het Nederlands.",
+                        },
+                        {
+                            "role":    "user",
+                            "content": json.dumps(rt, ensure_ascii=False),
+                        },
+                    ],
                 )
                 reply = resp.choices[0].message.content or ""
 
         # ── Standaard gesprek ─────────────────────────────────────────────────
         else:
             conv_memory = get_supabase_memory()
-            messages    = [{"role": "system", "content": wilbert_system_prompt(memory, intent)}]
+            messages    = [
+                {"role": "system", "content": wilbert_system_prompt(memory, intent)},
+            ]
             if conv_memory:
-                messages.append({"role": "system", "content": f"Recente gesprekken:\n{conv_memory}"})
+                messages.append({
+                    "role":    "system",
+                    "content": f"Recente gesprekken:\n{conv_memory}",
+                })
             messages.append({"role": "user", "content": prompt})
             resp  = client.chat.completions.create(
                 model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
                 temperature=0.4,
-                messages=messages
+                messages=messages,
             )
             reply = resp.choices[0].message.content or "Ik ben er maar kreeg geen antwoord terug."
 
@@ -664,6 +742,7 @@ def chat():
         print("Wilbert error:", exc)
         return jsonify({"reply": f"Er ging iets mis: {exc}", "intent": intent}), 500
 
+
 # ── TOOL ROUTES ───────────────────────────────────────────────────────────────
 @app.route("/tool/email", methods=["POST"])
 def tool_email():
@@ -671,7 +750,7 @@ def tool_email():
     return jsonify(send_email_tool(
         data.get("to", ""),
         data.get("subject", "Bericht van Wilbert"),
-        data.get("body", "")
+        data.get("body", ""),
     ))
 
 
@@ -693,9 +772,16 @@ def tool_clone_analyze():
     prompt = data.get("prompt", "") or data.get("url", "")
     return jsonify({"ok": True, "analysis": analyze_url_for_clone(prompt)})
 
+
 # ── BUSINESS ROUTES ───────────────────────────────────────────────────────────
 try:
-    from wilbert_business import invoice_agent, marketing_agent, add_contact, daily_summary, schedule_daily_summary
+    from wilbert_business import (
+        invoice_agent,
+        marketing_agent,
+        add_contact,
+        daily_summary,
+        schedule_daily_summary,
+    )
 
     @app.route("/business/invoice", methods=["POST"])
     def business_invoice():
@@ -706,7 +792,7 @@ try:
         return jsonify(invoice_agent(prompt))
 
     @app.route("/business/invoice/<invoice_number>")
-    def view_invoice(invoice_number):
+    def view_invoice(invoice_number: str):
         html_file = BASE_DIR / "data" / "invoices" / f"{invoice_number}.html"
         if not html_file.exists():
             return f"Factuur {invoice_number} niet gevonden.", 404
@@ -719,14 +805,16 @@ try:
         for f in sorted(INVOICES_DIR.glob("*.json"), reverse=True):
             inv = _load_json(f)
             if inv:
-                subtotal = sum(i["quantity"] * i["unit_price"] for i in inv.get("items", []))
-                total    = subtotal * (1 + inv.get("btw", 21) / 100)
+                subtotal = sum(
+                    i["quantity"] * i["unit_price"] for i in inv.get("items", [])
+                )
+                total = subtotal * (1 + inv.get("btw", 21) / 100)
                 items.append({
                     "number": inv["invoice_number"],
                     "client": inv["client_name"],
                     "date":   inv["date"],
                     "total":  f"euro{total:.2f}",
-                    "url":    f"/business/invoice/{inv['invoice_number']}"
+                    "url":    f"/business/invoice/{inv['invoice_number']}",
                 })
         return jsonify({"invoices": items, "count": len(items)})
 
@@ -766,9 +854,10 @@ try:
 except ImportError as e:
     print(f"Business module niet geladen: {e}")
 
+
 if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
         port=int(os.getenv("PORT", "5000")),
-        debug=os.getenv("FLASK_DEBUG", "1") == "1"
+        debug=os.getenv("FLASK_DEBUG", "1") == "1",
     )
