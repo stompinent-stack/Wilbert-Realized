@@ -188,7 +188,7 @@ Begin EXACT met: FILE: index.html"""
             "FILE: app.js\n<javascript met fade-in, smooth scroll, navbar effect>"
         )
 
-        frontend = self._claude(system, user, max_tokens=3500)
+        frontend = self._claude(system, user, max_tokens=8000)
 
         # Markdown fences verwijderen
         for tag in ["```html", "```css", "```javascript", "```js", "```"]:
