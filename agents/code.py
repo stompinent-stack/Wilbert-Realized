@@ -6,14 +6,17 @@ import anthropic
 
 class CodeAgent:
     def __init__(self, client):
-        self.client     = client
+        self.client = client
+
         self._anthropic = anthropic.Anthropic(
             api_key=os.getenv("ANTHROPIC_API_KEY")
         )
-        # FIX: model via env var zodat het zonder code-wijziging aanpasbaar is
-        # Live model op 2025-05-14: claude-sonnet-4-5-20251001
-        self._model = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20251001")
 
+        # Gebruik model via env var zodat Render/config het kan aanpassen
+        self._model = os.getenv(
+            "ANTHROPIC_MODEL",
+            "claude-3-5-sonnet-latest"
+        )
     def _claude(self, system: str, user: str, max_tokens: int = 8000) -> str:
         response = self._anthropic.messages.create(
             model=self._model,
