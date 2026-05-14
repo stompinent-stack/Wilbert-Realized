@@ -78,7 +78,6 @@ class CodeAgent:
         )
 
     def _fix_paths(self, html: str) -> str:
-        """Corrigeer alle CSS/JS pad-variaties naar correcte absolute paden."""
         fixes = [
             ('href="/project/style.cs"',  'href="/project/style.css"'),
             ("href='/project/style.cs'",  "href='/project/style.css'"),
@@ -121,7 +120,10 @@ class CodeAgent:
         except ImportError:
             pass
 
-        system = """Je bent een premium frontend developer, creative director en senior UI engineer.
+        design_ctx = f"\nDESIGN SYSTEM CSS:\n{WILBERT_DESIGN_SYSTEM}\n\n" if WILBERT_DESIGN_SYSTEM else ""
+
+        # ── Call 1: HTML + JS ─────────────────────────────────────────────────
+        html_system = """Je bent een premium frontend developer en senior UI engineer.
 Je bouwt premium moderne websites op het niveau van Framer, Linear, Vercel, Stripe en Apple.
 
 ABSOLUTE REGELS:
@@ -133,42 +135,57 @@ ABSOLUTE REGELS:
 6. Volledig responsive, premium uitstraling
 7. Gebruik NOOIT random externe afbeelding URLs
 8. Gebruik GEEN Unsplash random/source/photo endpoints
-9. Gebruik alleen:
-   - echte door gebruiker aangeleverde afbeeldingen
-   - of premium CSS placeholders
-10. Als echte productafbeeldingen ontbreken:
-   - gebruik CSS placeholders
-   - geen irrelevante stockfoto’s tonen
-11. Productafbeeldingen moeten inhoudelijk overeenkomen met het product
-12. Liever geen afbeelding dan een verkeerde afbeelding
-13. Kapotte img tags moeten automatisch fallback placeholders tonen
+9. Gebruik alleen echte aangeleverde afbeeldingen of premium CSS placeholders
+10. Liever geen afbeelding dan een verkeerde afbeelding
 
 Output: alleen FILE blocks, geen markdown uitleg.
 Begin EXACT met: FILE: index.html"""
 
-        design_ctx = f"\nDESIGN SYSTEM CSS:\n{WILBERT_DESIGN_SYSTEM}\n\n" if WILBERT_DESIGN_SYSTEM else ""
-
-        user = (
+        html_user = (
             f"{design_ctx}"
             f"TAAK:\n{task}\n\n"
             f"PLAN:\n{plan}\n\n"
             f"DESIGN:\n{design}\n\n"
-            "Bouw de volledige website.\n\n"
+            "Genereer ALLEEN de HTML en JavaScript.\n\n"
             "FILE: index.html\n<volledige html>\n\n"
-            "FILE: style.css\n<volledige css>\n\n"
             "FILE: app.js\n<javascript>"
         )
 
-        frontend = self._claude(system, user, max_tokens=10000)
+        html_js = self._claude(html_system, html_user, max_tokens=8000)
 
-        for tag in ["```html", "```css", "```javascript", "```js", "```"]:
-            frontend = frontend.replace(tag, "")
+        for tag in ["```html", "```javascript", "```js", "```"]:
+            html_js = html_js.replace(tag, "")
 
-        frontend = self._fix_paths(frontend)
+        html_js = self._fix_paths(html_js)
+
+        # ── Call 2: CSS apart ─────────────────────────────────────────────────
+        css_system = """Je bent een premium CSS designer.
+Schrijf volledige, uitgebreide CSS voor een premium website.
+Geen markdown, geen uitleg, alleen pure CSS code.
+Begin EXACT met: FILE: style.css"""
+
+        css_user = (
+            f"TAAK:\n{task}\n\n"
+            f"DESIGN:\n{design}\n\n"
+            "Schrijf de VOLLEDIGE CSS. Zorg voor:\n"
+            "- Alle secties gestyled\n"
+            "- Responsive (mobile, tablet, desktop)\n"
+            "- Animaties en hover effecten\n"
+            "- Mooie kleuren passend bij het thema\n\n"
+            "FILE: style.css\n<volledige css>"
+        )
+
+        css = self._claude(css_system, css_user, max_tokens=8000)
+
+        for tag in ["```css", "```"]:
+            css = css.replace(tag, "")
+
+        frontend = html_js.strip() + "\n\n" + css.strip()
 
         if not self._needs_backend(task):
             return frontend.strip()
 
+        # ── Call 3: Backend indien nodig ──────────────────────────────────────
         backend_system = (
             "Je bent een senior Python/Flask developer. "
             "Schrijf een volledige werkende Flask backend. "
