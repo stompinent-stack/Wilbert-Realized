@@ -104,7 +104,12 @@ Geef specifieke instructies die direct gebouwd kunnen worden.
 
 BELANGRIJK:
 - Kies altijd één duidelijke STYLE_DIRECTION die past bij taak, doelgroep en business.
-- Forceer niet altijd Dark Premium.
+- DEFAULT is géén Dark Premium.
+- Gebruik standaard een lichte, cleane premium stijl tenzij de gebruiker expliciet vraagt om dark, neon, futuristic, cyber, AI, glow of nightclub.
+- Premium betekent: rust, ruimte, typografie, goede beelden, duidelijke UX, vertrouwen en afwerking.
+- Premium betekent NIET automatisch: donker, neon, paars/cyaan gradients, glassmorphism of glow.
+- Vermijd paarse/cyaan neon gradients tenzij expliciet gevraagd.
+- Vermijd hero-secties die telkens bestaan uit donkere achtergrond + gradient headline + glow card.
 - De stijl moet logisch passen bij het project.
 - Antwoord altijd in het Nederlands.
 - Verwijder geen belangrijke onderdelen uit het plan.
@@ -121,12 +126,13 @@ STYLE_DIRECTION FORMAT:
 - Design Inspiration:
 
 VISUELE STIJL OPTIES:
+- Clean Premium: lichte achtergrond, zachte borders, goede typografie, veel whitespace
+- Editorial Commerce: productfoto’s, magazine layout, rustige luxe uitstraling
 - Minimal SaaS: wit/grijs, subtiele accenten, veel ruimte
-- Dark Premium: donker, neon accenten, glow effecten
+- Luxury Brand Light: crème/wit/zwart, elegante typography, product-focused
 - Playful Startup: kleurrijk, bold, energiek
-- Luxury Brand: zwart/goud, elegante typography
-- Futuristic AI: donkerblauw, paars accenten, tech gevoel
-- Editorial Clean: strak grid, sterke typografie, journalistiek
+- Dark Premium: alleen gebruiken als gebruiker expliciet dark/luxe/donker vraagt
+- Futuristic AI: alleen gebruiken als gebruiker expliciet AI/futuristisch/neon vraagt
 
 DESIGN STANDAARD:
 Stripe, Apple, Linear, Vercel niveau.
@@ -354,15 +360,11 @@ STYLE_DIRECTION
 - Design Inspiration: Stripe, Linear, Vercel en Apple.
 
 COLORS
-- Primary: #2563EB
-- Secondary: #111827
-- Accent: #7C3AED
-- Background: #F9FAFB
-- Surface: #FFFFFF
-- Text: #111827
-- Muted Text: #6B7280
-- Border: #E5E7EB
-- Gradient: linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)
+KLEURREGELS:
+- Kies standaard lichte backgrounds zoals #FFFFFF, #F8FAFC, #F9FAFB, #FAF7F2 of #F5F1EA.
+- Gebruik accentkleuren spaarzaam.
+- Gebruik geen paars/cyaan gradient als standaard.
+- Als het om productverkoop gaat, gebruik productfoto’s en rustige kleuren belangrijker dan abstracte gradients.
 
 TYPOGRAPHY
 - Desktop H1: 56px, line-height 1.05, font-weight 800
