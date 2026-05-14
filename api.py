@@ -58,12 +58,15 @@ app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 BASE_DIR    = Path(__file__).resolve().parent
+
+PROJECT_DIR = BASE_DIR / "output" / "project"
+PROJECT_DIR.mkdir(parents=True, exist_ok=True)
+
 PROJECTS_DIR = BASE_DIR / "output" / "projects"
 PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
+
 UPLOAD_DIR  = BASE_DIR / "uploads"
 MEMORY_FILE = BASE_DIR / "cofounder_memory.json"
-
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 research_agent = ResearchAgent(client)
 design_agent   = DesignAgent(client)
