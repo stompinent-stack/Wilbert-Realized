@@ -101,6 +101,16 @@ ABSOLUTE REGELS:
 8. Cards: premium, bij voorkeur .glass-card
 9. Secties: duidelijke hiërarchie via .section-header > .section-tag + .section-title + .section-sub
 10. Voeg .fade-up toe op belangrijke cards/secties voor scroll animatie
+11. Er mag maar EXACT ÉÉN hero section bestaan.
+12. Maak GEEN lege wrapper divs of spacer sections.
+13. Gebruik NOOIT extra sections boven de hero.
+14. De eerste zichtbare sectie onder nav moet DIRECT de hero content bevatten.
+15. Gebruik geen empty min-height containers.
+16. Gebruik geen placeholder wrappers.
+17. De hero moet ALTIJD direct zichtbare content bevatten binnen de eerste viewport.
+18. Maak nooit een lege section met alleen padding/margin/min-height.
+19. Nav-links mogen alleen verwijzen naar bestaande zichtbare secties.
+20. Elke section moet echte content bevatten.
 
 DESIGN KWALITEIT:
 - Maak geen generieke AI-template website
@@ -163,6 +173,15 @@ INTERACTIES:
 - Button hover states
 - Card hover states
 - Mobile menu indien nodig
+
+BELANGRIJKE VALIDATIE:
+Controleer vóór output:
+- geen dubbele hero
+- geen lege sections
+- geen lege divs
+- geen 100vh spacer blocks
+- geen verborgen hero content
+- hero content moet direct zichtbaar zijn bij page load
 
 VERBODEN:
 - Lege secties
