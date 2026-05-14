@@ -9,7 +9,7 @@ class CodeAgent:
         self.client     = client
         self._anthropic = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-    def _claude(self, system: str, user: str, max_tokens: int = 12000) -> str:
+    def _claude(self, system: str, user: str, max_tokens: int = 6000) -> str:
         response = self._anthropic.messages.create(
             model="claude-sonnet-4-5-20250929",
             max_tokens=max_tokens,
@@ -207,7 +207,7 @@ Begin EXACT met: FILE: index.html"""
             "FILE: app.js\n<javascript met fade-in, smooth scroll, navbar effect>"
         )
 
-        frontend = self._claude(system, user, max_tokens=12000)
+        frontend = self._claude(system, user, max_tokens=6000)
 
         # Markdown fences verwijderen
         for tag in ["```html", "```css", "```javascript", "```js", "```"]:
@@ -235,7 +235,7 @@ Begin EXACT met: FILE: index.html"""
             "Schrijf de volledige Flask backend.\n\n"
             "FILE: server.py\n<python>\n\nFILE: routes.md\n<uitleg>"
         )
-        backend = self._claude(backend_system, backend_user, max_tokens=8000)
+        backend = self._claude(backend_system, backend_user, max_tokens=6000)
 
         for tag in ["```python", "```markdown", "```md", "```"]:
             backend = backend.replace(tag, "")
