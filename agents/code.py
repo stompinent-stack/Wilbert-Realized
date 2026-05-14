@@ -34,7 +34,37 @@ class CodeAgent:
             return response.content[0].text or ""
 
         except Exception as e:
-            return f"CODEAGENT ERROR: {str(e)}"
+            error = str(e).replace("<", "&lt;").replace(">", "&gt;")
+
+            return (
+                "FILE: index.html\n"
+                "<!DOCTYPE html>\n"
+                "<html lang='nl'>\n"
+                "<head>\n"
+                "  <meta charset='UTF-8'>\n"
+                "  <meta name='viewport' content='width=device-width, initial-scale=1.0'>\n"
+                "  <title>CodeAgent fout</title>\n"
+                "  <link rel='stylesheet' href='/project/style.css'>\n"
+                "</head>\n"
+                "<body>\n"
+                "  <main class='error-page'>\n"
+                "    <section class='error-card'>\n"
+                "      <h1>CodeAgent fout</h1>\n"
+                f"      <p>{error}</p>\n"
+                "    </section>\n"
+                "  </main>\n"
+                "  <script src='/project/app.js'></script>\n"
+                "</body>\n"
+                "</html>\n\n"
+                "FILE: style.css\n"
+                "body { font-family: system-ui, sans-serif; background: #f8fafc; color: #0f172a; margin: 0; }\n"
+                ".error-page { min-height: 100vh; display: grid; place-items: center; padding: 40px; }\n"
+                ".error-card { max-width: 720px; background: white; border: 1px solid #e5e7eb; border-radius: 24px; padding: 40px; box-shadow: 0 20px 60px rgba(15,23,42,.08); }\n"
+                ".error-card h1 { margin: 0 0 12px; font-size: 32px; }\n"
+                ".error-card p { color: #64748b; line-height: 1.7; }\n\n"
+                "FILE: app.js\n"
+                "console.log('CodeAgent fallback loaded');\n"
+            )
 
     def _needs_backend(self, task: str) -> bool:
         return any(
@@ -122,7 +152,7 @@ Begin EXACT met: FILE: index.html"""
         )
 
         try:
-            frontend = self._claude(system, user, max_tokens=3500)
+            frontend = self._claude(system, user, max_tokens=6000)
         except Exception as e:
             # Fallback: log de fout maar crash niet naar de gebruiker
             print(f"[CodeAgent] Anthropic API fout: {e}")
