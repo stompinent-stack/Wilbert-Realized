@@ -287,13 +287,33 @@ def extract_file_blocks(text: str) -> List[Tuple[str, str]]:
     return files
 
 
-def save_project_files(reply: str) -> List[str]:
+def save_project_files(reply: str, project_name: str = "latest") -> List[str]:
+    import re
+    from datetime import datetime
+
     saved = []
+
+    safe_name = re.sub(r"[^a-zA-Z0-9_-]+", "-", project_name.strip().lower()).strip("-")
+    if not safe_name:
+        safe_name = "project"
+
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    archive_dir = PROJECTS_DIR / f"{safe_name}-{timestamp}"
+    archive_dir.mkdir(parents=True, exist_ok=True)
+
     for filename, content in extract_file_blocks(reply):
-        path = PROJECT_DIR / filename
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
+        # Laatste preview blijft werken
+        preview_path = PROJECT_DIR / filename
+        preview_path.parent.mkdir(parents=True, exist_ok=True)
+        preview_path.write_text(content, encoding="utf-8")
+
+        # Archief per project/build
+        archive_path = archive_dir / filename
+        archive_path.parent.mkdir(parents=True, exist_ok=True)
+        archive_path.write_text(content, encoding="utf-8")
+
         saved.append(filename)
+
     return saved
 
 # ── TOOLS ─────────────────────────────────────────────────────────────────────
