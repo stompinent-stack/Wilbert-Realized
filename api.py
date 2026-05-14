@@ -63,7 +63,6 @@ PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
 UPLOAD_DIR  = BASE_DIR / "uploads"
 MEMORY_FILE = BASE_DIR / "cofounder_memory.json"
 
-PROJECT_DIR.mkdir(parents=True, exist_ok=True)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 research_agent = ResearchAgent(client)
