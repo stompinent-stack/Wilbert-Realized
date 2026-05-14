@@ -8,14 +8,6 @@ from datetime import datetime
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
-from photo_engine import (
-    fetch_photos_for_prompt,
-    has_photo_intent_in_build,
-    inject_photos_into_html,
-    build_photo_context_for_ai,
-    is_photo_request,
-    answer_direct_photo_request,
-)
 
 import requests
 from bs4 import BeautifulSoup
@@ -32,26 +24,32 @@ from agents.deploy import DeployAgent
 
 load_dotenv()
 
-# ── OPTIONELE IMPORTS (crash niet als ze ontbreken) ───────────────────────────
+# ── SUPABASE — optioneel, crasht nooit ───────────────────────────────────────
+# FIX 1: was een harde import + create_client() zonder try/except
+# Als SUPABASE_URL of SUPABASE_KEY leeg zijn op Render → TypeError → 500
 _supabase = None
 try:
-    from supabase import create_client
-    _url = os.getenv("SUPABASE_URL")
-    _key = os.getenv("SUPABASE_KEY")
-    if _url and _key:
-        _supabase = create_client(_url, _key)
+    from supabase import create_client as _sb_create
+    _sb_url = os.getenv("SUPABASE_URL", "").strip()
+    _sb_key = os.getenv("SUPABASE_KEY", "").strip()
+    if _sb_url and _sb_key:
+        _supabase = _sb_create(_sb_url, _sb_key)
         print("✅ Supabase verbonden.")
     else:
-        print("⚠️  Supabase env vars ontbreken — lokaal geheugen actief.")
-except Exception as e:
-    print(f"⚠️  Supabase import fout: {e}")
+        print("⚠️  SUPABASE_URL/KEY ontbreken — lokaal geheugen actief.")
+except Exception as _e:
+    print(f"⚠️  Supabase niet geladen: {_e}")
 
-_realtime_available = False
+# ── REALTIME TOOL — optioneel, crasht nooit ──────────────────────────────────
+# FIX 2: was een harde import zonder try/except
+# Als realtime_tool.py een fout bevat → ImportError bij startup → 500
+_realtime_intelligence = None
 try:
-    from tools.realtime_tool import realtime_intelligence
-    _realtime_available = True
-except Exception:
-    pass
+    from tools.realtime_tool import realtime_intelligence as _rt
+    _realtime_intelligence = _rt
+    print("✅ Realtime tool geladen.")
+except Exception as _e:
+    print(f"⚠️  Realtime tool niet geladen: {_e}")
 
 # ── FLASK APP ─────────────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -59,14 +57,13 @@ app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-BASE_DIR     = Path(__file__).resolve().parent
-PROJECT_DIR  = BASE_DIR / "output" / "project"
-PROJECTS_DIR = BASE_DIR / "output" / "projects"
-UPLOAD_DIR   = BASE_DIR / "uploads"
-MEMORY_FILE  = BASE_DIR / "cofounder_memory.json"
+BASE_DIR    = Path(__file__).resolve().parent
+PROJECT_DIR = BASE_DIR / "output" / "project"
+UPLOAD_DIR  = BASE_DIR / "uploads"
+MEMORY_FILE = BASE_DIR / "cofounder_memory.json"
 
-for _d in [PROJECT_DIR, PROJECTS_DIR, UPLOAD_DIR]:
-    _d.mkdir(parents=True, exist_ok=True)
+PROJECT_DIR.mkdir(parents=True, exist_ok=True)
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 research_agent = ResearchAgent(client)
 design_agent   = DesignAgent(client)
@@ -78,7 +75,6 @@ ALLOWED_PROJECT_FILES = {
     "index.html", "about.html", "pricing.html", "contact.html",
     "services.html", "blog.html",
     "style.css", "app.js", "script.js",
-    "server.py", "routes.md",
     "package.json", "next.config.js", "tailwind.config.js",
     "postcss.config.js", "tsconfig.json",
     "app/page.tsx", "app/layout.tsx", "app/globals.css",
@@ -87,74 +83,30 @@ ALLOWED_PROJECT_FILES = {
     "components/Footer.tsx",
 }
 
-# ── PROJECT MAP HELPERS ───────────────────────────────────────────────────────
-def _safe_dirname(text: str) -> str:
-    cleaned = re.sub(r"[^a-z0-9]+", "-", (text or "project").lower()).strip("-")
-    return cleaned[:40] or "project"
-
-
-def _extract_project_name(prompt: str) -> str:
-    if not prompt:
-        return "project"
-
-    m = re.search(r'"([^"]{2,40})"', prompt)
-    if m:
-        return m.group(1).strip()
-
-    m = re.search(
-        r"(?:genaamd|heet|called|named|voor)\s+([A-Z][a-zA-Z0-9 ]{1,30})",
-        prompt,
-    )
-    if m:
-        return m.group(1).strip()
-
-    m = re.search(
-        r"(?:bouw|maak|build|create)\s+(?:een\s+|een\s+complete\s+|een\s+premium\s+)?([A-Z][a-zA-Z0-9 ]{1,30})",
-        prompt,
-    )
-    if m:
-        return m.group(1).strip()
-
-    words = prompt.strip().split()[:3]
-    name  = " ".join(words)
-
-    if not name or name.lower() in ["project", "website", "site", "app", "pagina", "bouw", "maak"]:
-        name = "project-" + datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-
-    return name
-
-
-def _get_named_project_dir(name: str) -> Path:
-    safe      = _safe_dirname(name)
-    candidate = PROJECTS_DIR / safe
-
-    if candidate.exists() and any(candidate.iterdir()):
-        safe      = safe + "-" + datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-        candidate = PROJECTS_DIR / safe
-
-    candidate.mkdir(parents=True, exist_ok=True)
-    return candidate
-
-
 # ── GEHEUGEN ──────────────────────────────────────────────────────────────────
-def _default_memory() -> Dict[str, Any]:
+def default_memory() -> Dict[str, Any]:
     return {
-        "user": {"name": "", "goals": [], "style": "warm_builder"},
-        "projects": [],
-        "insights": [],
+        "user": {
+            "name":  "",
+            "goals": ["Build Wilbert as a personal AI cofounder, advisor, builder, friend and manager."],
+            "style": "warm_builder",
+        },
+        "projects":  [],
+        "insights":  [],
         "decisions": [],
-        "notes": [],
-        "history": [],
-        "tasks": [],
+        "notes":     [],
+        "history":   [],
+        "tasks":     [],
         "tools": {
             "email": False, "telegram": False,
-            "voice": True, "vision": True, "web": True,
+            "voice": True,  "vision":   True,
+            "web":   True,  "cloud":    True,
         },
     }
 
 
 def load_memory() -> Dict[str, Any]:
-    memory = _default_memory()
+    memory = default_memory()
     if MEMORY_FILE.exists():
         try:
             with MEMORY_FILE.open("r", encoding="utf-8") as f:
@@ -163,6 +115,10 @@ def load_memory() -> Dict[str, Any]:
                 memory.update(loaded)
         except Exception as exc:
             print("Memory load error:", exc)
+    base = default_memory()
+    for key, value in base.items():
+        if key not in memory:
+            memory[key] = value
     for key in ["history", "insights", "projects", "decisions", "notes", "tasks"]:
         if not isinstance(memory.get(key), list):
             memory[key] = []
@@ -183,7 +139,7 @@ def remember(memory: Dict[str, Any], role: str, content: str) -> None:
         "content": content,
         "time":    datetime.utcnow().isoformat(),
     })
-    memory["history"] = memory["history"][-80:]
+    memory["history"] = memory["history"][-60:]
 
 
 def update_structured_memory(memory: Dict[str, Any], prompt: str, intent: str) -> None:
@@ -192,7 +148,7 @@ def update_structured_memory(memory: Dict[str, Any], prompt: str, intent: str) -
         return
     lower = clean.lower()
     if intent in {"build", "improve", "deploy", "clone"} or any(
-        w in lower for w in ["idee", "business", "website", "app", "software"]
+        w in lower for w in ["idee", "business", "website", "app", "software", "dropshipping"]
     ):
         if clean not in memory["insights"]:
             memory["insights"].append(clean)
@@ -201,20 +157,20 @@ def update_structured_memory(memory: Dict[str, Any], prompt: str, intent: str) -
         memory["projects"].append({
             "title":  clean[:90],
             "type":   intent,
-            "status": "gebouwd",
+            "status": "generated_or_updated",
             "time":   datetime.utcnow().isoformat(),
         })
         memory["projects"] = memory["projects"][-50:]
-    if any(w in lower for w in ["onthoud", "besluit", "afspraak", "decision"]):
+    if any(w in lower for w in ["onthoud", "besluit", "decision", "afspraak"]):
         if clean not in memory["decisions"]:
             memory["decisions"].append(clean)
         memory["decisions"] = memory["decisions"][-50:]
 
 
 def memory_summary(memory: Dict[str, Any]) -> str:
-    recent = [
-        f"{i['role']}: {i['content']}"
-        for i in memory.get("history", [])[-16:]
+    recent_history = [
+        i.get("role", "") + ": " + i.get("content", "")
+        for i in memory.get("history", [])[-12:]
     ]
     return json.dumps(
         {
@@ -222,7 +178,8 @@ def memory_summary(memory: Dict[str, Any]) -> str:
             "insights":       memory.get("insights", [])[-20:],
             "projects":       memory.get("projects", [])[-10:],
             "decisions":      memory.get("decisions", [])[-10:],
-            "recent_history": recent,
+            "notes":          memory.get("notes", [])[-10:],
+            "recent_history": recent_history,
         },
         ensure_ascii=False,
         indent=2,
@@ -230,30 +187,81 @@ def memory_summary(memory: Dict[str, Any]) -> str:
 
 
 def wilbert_system_prompt(memory: Dict[str, Any], intent: str) -> str:
-    user_name = memory.get("user", {}).get("name", "")
-    greeting  = f"De gebruiker heet {user_name}. " if user_name else ""
     return (
-        "Je bent Wilbert — warme, loyale, scherpe AI cofounder, adviseur, bouwer en vriend.\n"
-        f"{greeting}"
-        "Je helpt de gebruiker ideeën omzetten in echte websites, apps, software en bedrijven.\n"
-        "Spreek altijd Nederlands. Warm, direct, aanmoedigend en to-the-point.\n\n"
-        f"Intent: {intent}\n\n"
-        f"Geheugen:\n{memory_summary(memory)}\n\n"
-        "Regels:\n"
-        "- Geef concrete antwoorden, geen vage tekst\n"
-        "- Gebruik de naam van de gebruiker als je die kent\n"
-        "- Spreek als Wilbert, niet als generieke assistent\n"
-        "- Houd antwoorden bondig tenzij detail gevraagd wordt\n"
+        "You are Wilbert. You are not a cold chatbot. "
+        "You are a warm, loyal, sharp AI cofounder, personal advisor, builder, agent and friend.\n"
+        "You help the user turn ideas into real websites, apps, software, online businesses and systems.\n"
+        "Speak Dutch naturally, warm, direct, encouraging and practical.\n\n"
+        "Wilbert architecture: Wilbert is the main agent/orchestrator. "
+        "ResearchAgent, DesignAgent, CodeAgent and DeployAgent are your team.\n"
+        "Current intent: " + intent + "\n\n"
+        "Memory:\n" + memory_summary(memory) + "\n\n"
+        "Rules:\n"
+        "- If the user asks for advice, analyze first and give a clear plan.\n"
+        "- If the user asks what you remember, cite actual memory items.\n"
+        "- If env vars are missing, say what is missing.\n"
+        "- Keep the relationship warm: speak like Wilbert, not like a generic assistant.\n"
     )
 
+# ── INTENT DETECTIE ───────────────────────────────────────────────────────────
+def detect_intent(prompt: str, has_file: bool = False) -> str:
+    text = (prompt or "").lower()
+    build_words   = ["bouw", "maak", "genereer", "produceer", "create", "build", "website", "app",
+                     "software", "landing page", "webshop", "shop", "dashboard", "code",
+                     "radiostation", "radio station"]
+    improve_words = ["verbeter", "pas aan", "aanpassen", "upgrade", "maak mooier",
+                     "optimaliseer", "fix", "repareer", "verander"]
+    deploy_words  = ["deploy", "online", "cloud", "publiceer", "host", "render", "vercel"]
+    email_words   = ["mail", "email", "e-mail", "stuur een mail", "send email"]
+    telegram_words = ["telegram", "bericht naar telegram", "telegram bericht"]
+    web_words     = ["zoek", "research", "internet", "web zoeken", "google",
+                     "leveranciers", "concurrenten", "live data"]
+    clone_words   = ["clone", "kloon", "klonen", "namaak", "namaken",
+                     "maak na", "kopieer stijl", "copy style"]
+    preview_words = ["preview", "laat zien", "toon website", "open project"]
+    memory_words  = ["wat weet je", "wat herinner", "onthoud", "memory",
+                     "vorige ideeën", "vorige ideeen"]
+
+    if has_file or any(w in text for w in ["screenshot", "foto", "scan", "afbeelding", "image"]):
+        return "vision"
+    if any(w in text for w in preview_words):
+        return "preview"
+    if any(w in text for w in clone_words) or re.search(r"https?://", text):
+        return "clone"
+    if any(w in text for w in deploy_words):
+        return "deploy"
+    if any(w in text for w in email_words):
+        return "email"
+    if any(w in text for w in telegram_words):
+        return "telegram"
+    if any(w in text for w in web_words):
+        return "research"
+    if any(w in text for w in memory_words):
+        return "memory"
+    if any(w in text for w in improve_words):
+        return "improve"
+    if any(w in text for w in build_words):
+        explicit_build = any(w in text for w in [
+            "bouw", "maak", "genereer", "produceer", "create", "build", "code"
+        ])
+        if explicit_build:
+            return "build"
+    return "advisor"
 
 # ── BESTAND VERWERKING ────────────────────────────────────────────────────────
-def _clean_code(content: str) -> str:
+# FIX 4: extract_file_blocks stond DUBBEL in de live api.py.
+# De eerste kopie stond buiten elke functie → "return outside function" SyntaxError.
+# Hieronder staat alleen de CORRECTE versie met clean_generated_code.
+
+def clean_generated_code(content: str) -> str:
     content = content.strip()
     content = re.sub(r"^```[a-zA-Z0-9]*\s*", "", content)
     content = re.sub(r"\s*```$", "", content)
-    for tag in ["```html", "```css", "```javascript", "```js", "```python", "```"]:
-        content = content.replace(tag, "")
+    content = content.replace("```html", "")
+    content = content.replace("```css", "")
+    content = content.replace("```javascript", "")
+    content = content.replace("```js", "")
+    content = content.replace("```", "")
     return content.strip()
 
 
@@ -272,30 +280,20 @@ def extract_file_blocks(text: str) -> List[Tuple[str, str]]:
         content  = "\n".join(lines[1:]).strip()
         if filename == "script.js":
             filename = "app.js"
-        content = _clean_code(content)
+        content = clean_generated_code(content)
         if filename in ALLOWED_PROJECT_FILES and content:
             files.append((filename, content))
     return files
 
 
-def save_project_files(reply: str, project_name: str = None) -> List[str]:
-    saved  = []
-    blocks = extract_file_blocks(reply)
-
-    for filename, content in blocks:
-        if project_name:
-            named = _get_named_project_dir(project_name) / filename
-            named.parent.mkdir(parents=True, exist_ok=True)
-            named.write_text(content, encoding="utf-8")
-
-        preview = PROJECT_DIR / filename
-        preview.parent.mkdir(parents=True, exist_ok=True)
-        preview.write_text(content, encoding="utf-8")
-
+def save_project_files(reply: str) -> List[str]:
+    saved = []
+    for filename, content in extract_file_blocks(reply):
+        path = PROJECT_DIR / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
         saved.append(filename)
-
     return saved
-
 
 # ── TOOLS ─────────────────────────────────────────────────────────────────────
 def send_email_tool(to: str, subject: str, body: str) -> Dict[str, Any]:
@@ -325,7 +323,7 @@ def send_telegram_tool(text: str) -> Dict[str, Any]:
         return {"ok": False, "error": "Telegram niet geconfigureerd."}
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     res = requests.post(url, json={"chat_id": chat_id, "text": text}, timeout=20)
-    return {"ok": res.ok, "status_code": res.status_code}
+    return {"ok": res.ok, "status_code": res.status_code, "response": res.text[:500]}
 
 
 def analyze_image_tool(file_path: Path, prompt: str) -> str:
@@ -337,7 +335,7 @@ def analyze_image_tool(file_path: Path, prompt: str) -> str:
         messages=[
             {
                 "role":    "system",
-                "content": "Je bent Wilbert Vision. Analyseer afbeeldingen praktisch. Antwoord in het Nederlands.",
+                "content": "You are Wilbert Vision. Analyze screenshots/images practically. Answer in Dutch.",
             },
             {
                 "role": "user",
@@ -361,9 +359,26 @@ def read_url_tool(url: str) -> Dict[str, Any]:
         res     = requests.get(url, headers=headers, timeout=20)
         soup    = BeautifulSoup(res.text[:250000], "html.parser")
         title   = soup.title.string.strip() if soup.title and soup.title.string else ""
+        meta    = soup.find("meta", attrs={"name": "description"})
+        desc    = (meta.get("content", "") if meta else "")[:500]
         headings = [h.get_text(" ", strip=True) for h in soup.find_all(["h1", "h2", "h3"])][:30]
-        body    = soup.get_text(" ", strip=True)[:6000]
-        return {"ok": True, "url": url, "title": title, "headings": headings, "text_sample": body}
+        links   = []
+        for a in soup.find_all("a", href=True)[:40]:
+            t = a.get_text(" ", strip=True)[:80]
+            h = a.get("href", "")[:180]
+            if t or h:
+                links.append({"text": t, "href": h})
+        body = soup.get_text(" ", strip=True)[:6000]
+        return {
+            "ok":          True,
+            "url":         url,
+            "status_code": res.status_code,
+            "title":       title,
+            "description": desc,
+            "headings":    headings,
+            "links":       links,
+            "text_sample": body,
+        }
     except Exception as exc:
         return {"ok": False, "url": url, "error": str(exc)}
 
@@ -393,9 +408,9 @@ def analyze_url_for_clone(prompt: str) -> str:
 
 
 def web_intelligence(prompt: str) -> str:
-    key = os.getenv("SERPAPI_KEY")
+    key = os.getenv("SERPAPI_KEY", "").strip()
     if not key:
-        return "SERPAPI_KEY ontbreekt in je .env."
+        return "SERPAPI_KEY ontbreekt in de environment variables."
     try:
         search  = requests.get(
             "https://serpapi.com/search.json",
@@ -410,9 +425,10 @@ def web_intelligence(prompt: str) -> str:
             try:
                 page = read_url_tool(url)
                 results.append({
-                    "title":   r.get("title"),
-                    "url":     url,
-                    "summary": page.get("text_sample", "")[:1000],
+                    "title":    r.get("title"),
+                    "url":      url,
+                    "headings": page.get("headings", [])[:10],
+                    "summary":  page.get("text_sample", "")[:1000],
                 })
             except Exception:
                 continue
@@ -434,9 +450,9 @@ def web_intelligence(prompt: str) -> str:
     except Exception as e:
         return f"Web research fout: {e}"
 
-
-# ── SUPABASE GEHEUGEN ─────────────────────────────────────────────────────────
-def get_supabase_memory(user_id: str = "default") -> str:
+# ── SUPABASE HELPERS ──────────────────────────────────────────────────────────
+def get_memory(user_id: str = "default") -> str:
+    """Haal conversatie-context op uit Supabase. Faalt stil als niet beschikbaar."""
     if not _supabase:
         return ""
     try:
@@ -445,7 +461,7 @@ def get_supabase_memory(user_id: str = "default") -> str:
             .select("message, response")
             .eq("user_id", user_id)
             .order("created_at", desc=True)
-            .limit(8)
+            .limit(5)
             .execute()
         )
         context = ""
@@ -453,11 +469,12 @@ def get_supabase_memory(user_id: str = "default") -> str:
             context += f"User: {m['message']}\nWilbert: {m['response']}\n"
         return context
     except Exception as e:
-        print("Supabase memory error:", e)
+        print("Memory error:", e)
         return ""
 
 
-def save_supabase_message(prompt: str, reply: str, user_id: str = "default") -> None:
+def _save_to_supabase(prompt: str, reply: str, user_id: str = "default") -> None:
+    """Sla op in Supabase. Faalt stil als niet beschikbaar."""
     if not _supabase:
         return
     try:
@@ -468,7 +485,6 @@ def save_supabase_message(prompt: str, reply: str, user_id: str = "default") -> 
         }).execute()
     except Exception as e:
         print("Supabase save error:", e)
-
 
 # ── ROUTES ────────────────────────────────────────────────────────────────────
 @app.route("/")
@@ -481,8 +497,9 @@ def health():
     return jsonify({
         "ok":          True,
         "name":        "Wilbert",
-        "version":     "2.1",
+        "version":     "2.2",
         "supabase":    _supabase is not None,
+        "realtime":    _realtime_intelligence is not None,
         "project_dir": str(PROJECT_DIR),
     })
 
@@ -492,40 +509,11 @@ def memory_route():
     return jsonify(load_memory())
 
 
-@app.route("/projects")
-def list_projects():
-    items = []
-    if PROJECTS_DIR.exists():
-        for p in sorted(PROJECTS_DIR.iterdir()):
-            if p.is_dir() and (p / "index.html").exists():
-                items.append({
-                    "name":  p.name,
-                    "url":   f"/projects/{p.name}",
-                    "files": [f.name for f in p.iterdir() if f.is_file()],
-                })
-    return jsonify({"projects": items})
-
-
-@app.route("/projects/<project_name>")
-def view_named_project(project_name: str):
-    safe = _safe_dirname(project_name)
-    path = PROJECTS_DIR / safe / "index.html"
-    if not path.exists():
-        return f"Project '{safe}' niet gevonden.", 404
-    return send_from_directory(PROJECTS_DIR / safe, "index.html")
-
-
-@app.route("/projects/<project_name>/<path:filename>")
-def named_project_files(project_name: str, filename: str):
-    safe = _safe_dirname(project_name)
-    return send_from_directory(PROJECTS_DIR / safe, filename)
-
-
 @app.route("/project")
 def view_project():
-    index = PROJECT_DIR / "index.html"
-    if not index.exists():
-        return "Nog geen project gebouwd. Vraag Wilbert om een website te bouwen.", 404
+    index_path = PROJECT_DIR / "index.html"
+    if not index_path.exists():
+        return "Nog geen project gebouwd. Vraag Wilbert om een website/app te bouwen.", 404
     return send_from_directory(PROJECT_DIR, "index.html")
 
 
@@ -546,14 +534,6 @@ def chat():
     msg      = prompt.lower()
     uploaded = request.files.get("file")
     has_file = uploaded is not None
-
-    # ── Directe fotovragen ────────────────────────────────────────────────────
-    if is_photo_request(prompt):
-        return jsonify({
-            "intent": "image",
-            "reply":  answer_direct_photo_request(prompt),
-            "type":   "photo",
-        })
 
     memory = load_memory()
     result = mode_agent.run(prompt)
@@ -576,70 +556,12 @@ def chat():
 
         # ── Website bouwen ────────────────────────────────────────────────────
         elif intent == "build":
-            project_name = _extract_project_name(prompt)
-
-            # Foto's ophalen als de prompt dat vraagt
-            photos       = []
-            photo_ctx    = ""
-            if has_photo_intent_in_build(prompt):
-                photos    = fetch_photos_for_prompt(prompt, max_photos=4)
-                photo_ctx = build_photo_context_for_ai(photos)
-
             plan     = research_agent.run(prompt, memory_summary(memory))
             design   = design_agent.run(prompt, plan)
-            raw_code = code_agent.run(
-                f"{prompt}\n\nMODE:\n{mode}\n\n{photo_ctx}",
-                plan,
-                design,
-            )
-
-            # Foto's injecteren in HTML als fallback
-            if photos:
-                blocks = extract_file_blocks(raw_code)
-                new_blocks = []
-                for fname, content in blocks:
-                    if fname == "index.html":
-                        content = inject_photos_into_html(content, photos)
-                    new_blocks.append(f"FILE: {fname}\n{content}")
-                raw_code = "\n\n".join(new_blocks)
-
-            saved = save_project_files(raw_code, project_name)
+            raw_code = code_agent.run(f"{prompt}\n\nMODE:\n{mode}", plan, design)
+            saved    = save_project_files(raw_code)
             if saved:
-                safe_name = _safe_dirname(project_name)
-                reply     = (
-                    f"Klaar! '{project_name}' is gebouwd en opgeslagen. "
-                    f"Bekijk via /project of /projects/{safe_name}"
-                )
-                response_payload = {
-                    "reply":        reply,
-                    "intent":       intent,
-                    "type":         "build_complete",
-                    "preview_url":  "/project",
-                    "project_url":  f"/projects/{safe_name}",
-                    "project_name": project_name,
-                    "files":        saved,
-                }
-            else:
-                reply = "Ik probeerde te bouwen maar kon geen bestanden opslaan. Probeer opnieuw."
-
-        # ── Website verbeteren ────────────────────────────────────────────────
-        elif intent == "improve":
-            project_name = _extract_project_name(prompt)
-            existing     = ""
-            for name in ["index.html", "style.css", "app.js"]:
-                p = PROJECT_DIR / name
-                if p.exists():
-                    existing += f"\n\nFILE: {name}\n{p.read_text(encoding='utf-8')[:12000]}"
-            plan     = research_agent.run("Improve: " + prompt, memory_summary(memory))
-            design   = design_agent.run(prompt, plan)
-            raw_code = code_agent.run(
-                f"{prompt}\n\nBestaand project:\n{existing}",
-                plan,
-                design,
-            )
-            saved = save_project_files(raw_code, project_name)
-            if saved:
-                reply = f"Klaar! '{project_name}' is verbeterd."
+                reply = "Klaar. Ik heb de website/app gebouwd en opgeslagen. Bekijk meteen de preview."
                 response_payload = {
                     "reply":       reply,
                     "intent":      intent,
@@ -648,28 +570,48 @@ def chat():
                     "files":       saved,
                 }
             else:
-                reply = "Kon de website niet verbeteren. Probeer opnieuw."
+                reply = "Ik probeerde te bouwen, maar kon geen geldige projectbestanden opslaan. Probeer opnieuw."
+
+        # ── Website verbeteren ────────────────────────────────────────────────
+        elif intent == "improve":
+            existing = ""
+            for name in ["index.html", "style.css", "app.js"]:
+                p = PROJECT_DIR / name
+                if p.exists():
+                    existing += f"\n\nFILE: {name}\n{p.read_text(encoding='utf-8')[:12000]}"
+            plan     = research_agent.run("Improve: " + prompt, memory_summary(memory))
+            design   = design_agent.run(prompt, plan)
+            raw_code = code_agent.run(
+                f"{prompt}\n\nBestaand project:\n{existing}", plan, design
+            )
+            saved = save_project_files(raw_code)
+            if saved:
+                reply = "Klaar. Ik heb de website/app aangepast. Bekijk meteen de nieuwe preview."
+                response_payload = {
+                    "reply":       reply,
+                    "intent":      intent,
+                    "type":        "build_complete",
+                    "preview_url": "/project",
+                    "files":       saved,
+                }
+            else:
+                reply = "Kon de website niet aanpassen. Probeer opnieuw."
 
         # ── Website klonen ────────────────────────────────────────────────────
         elif intent == "clone":
             clone_analysis = analyze_url_for_clone(prompt)
-            urls           = extract_urls(prompt)
             build_words    = ["bouw", "maak", "clone", "kloon", "namaken", "maak na"]
-            if urls and any(w in msg for w in build_words):
-                project_name = _extract_project_name(prompt)
-                plan         = research_agent.run("Clone: " + clone_analysis, memory_summary(memory))
-                design       = design_agent.run(
-                    prompt,
-                    f"{plan}\n\nClone analysis:\n{clone_analysis}",
+            if extract_urls(prompt) and any(w in msg for w in build_words):
+                plan     = research_agent.run("Clone: " + clone_analysis, memory_summary(memory))
+                design   = design_agent.run(
+                    prompt, f"{plan}\n\nClone analysis:\n{clone_analysis}"
                 )
                 raw_code = code_agent.run(
-                    f"{prompt}\n\nClone analysis:\n{clone_analysis}",
-                    plan,
-                    design,
+                    f"{prompt}\n\nClone analysis:\n{clone_analysis}", plan, design
                 )
-                saved = save_project_files(raw_code, project_name)
+                saved = save_project_files(raw_code)
                 if saved:
-                    reply = f"Klaar! Eigen versie van '{project_name}' gebouwd op basis van de URL."
+                    reply = "Klaar. Ik heb een eigen versie gebouwd op basis van de URL-analyse. Bekijk de preview."
                     response_payload = {
                         "reply":       reply,
                         "intent":      intent,
@@ -687,41 +629,49 @@ def chat():
             reply = web_intelligence(prompt)
 
         # ── Realtime info ─────────────────────────────────────────────────────
-        elif _realtime_available and any(
-            w in msg for w in ["hoe laat", "tijd", "nieuws", "live", "trend"]
+        elif _realtime_intelligence and any(
+            w in msg for w in ["hoe laat", "tijd", "nieuws", "news", "laatste", "live", "trend", "trends"]
         ):
-            rt = realtime_intelligence(prompt)
-            if isinstance(rt, dict) and rt.get("time"):
-                reply = f"Het is nu {rt['time']} in {rt['timezone']} op {rt['date']}."
-            else:
-                resp  = client.chat.completions.create(
-                    model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-                    temperature=0.3,
-                    messages=[
-                        {
-                            "role":    "system",
-                            "content": "Vat realtime info samen in het Nederlands.",
-                        },
-                        {
-                            "role":    "user",
-                            "content": json.dumps(rt, ensure_ascii=False),
-                        },
-                    ],
-                )
-                reply = resp.choices[0].message.content or ""
+            try:
+                rt = _realtime_intelligence(prompt)
+                # FIX: altijd door AI samenvatten, nooit raw JSON tonen
+                if isinstance(rt, dict) and rt.get("summary"):
+                    reply = rt["summary"]
+                elif isinstance(rt, dict) and rt.get("time"):
+                    reply = f"Het is nu {rt['time']} in {rt.get('timezone','?')} op {rt.get('date','?')}."
+                else:
+                    resp  = client.chat.completions.create(
+                        model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+                        temperature=0.3,
+                        messages=[
+                            {
+                                "role":    "system",
+                                "content": "Vat realtime info samen in het Nederlands. Geen raw JSON tonen.",
+                            },
+                            {
+                                "role":    "user",
+                                "content": json.dumps(rt, ensure_ascii=False)[:4000],
+                            },
+                        ],
+                    )
+                    reply = resp.choices[0].message.content or ""
+            except Exception as rt_err:
+                print("Realtime error:", rt_err)
+                reply = "Ik kon de realtime info nu niet ophalen. Probeer het opnieuw."
 
         # ── Standaard gesprek ─────────────────────────────────────────────────
         else:
-            conv_memory = get_supabase_memory()
-            messages    = [
+            conversation_memory = get_memory()
+            messages = [
                 {"role": "system", "content": wilbert_system_prompt(memory, intent)},
             ]
-            if conv_memory:
+            if conversation_memory:
                 messages.append({
                     "role":    "system",
-                    "content": f"Recente gesprekken:\n{conv_memory}",
+                    "content": f"Recente gesprekken:\n{conversation_memory}",
                 })
             messages.append({"role": "user", "content": prompt})
+
             resp  = client.chat.completions.create(
                 model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
                 temperature=0.4,
@@ -729,10 +679,10 @@ def chat():
             )
             reply = resp.choices[0].message.content or "Ik ben er maar kreeg geen antwoord terug."
 
-        # ── Geheugen opslaan ──────────────────────────────────────────────────
+        # ── Opslaan ───────────────────────────────────────────────────────────
         remember(memory, "assistant", reply)
         save_memory(memory)
-        save_supabase_message(prompt, reply)
+        _save_to_supabase(prompt, reply)
 
         if response_payload is not None:
             return jsonify(response_payload)
@@ -741,7 +691,6 @@ def chat():
     except Exception as exc:
         print("Wilbert error:", exc)
         return jsonify({"reply": f"Er ging iets mis: {exc}", "intent": intent}), 500
-
 
 # ── TOOL ROUTES ───────────────────────────────────────────────────────────────
 @app.route("/tool/email", methods=["POST"])
@@ -771,88 +720,6 @@ def tool_clone_analyze():
     data   = request.get_json(silent=True) or {}
     prompt = data.get("prompt", "") or data.get("url", "")
     return jsonify({"ok": True, "analysis": analyze_url_for_clone(prompt)})
-
-
-# ── BUSINESS ROUTES ───────────────────────────────────────────────────────────
-try:
-    from wilbert_business import (
-        invoice_agent,
-        marketing_agent,
-        add_contact,
-        daily_summary,
-        schedule_daily_summary,
-    )
-
-    @app.route("/business/invoice", methods=["POST"])
-    def business_invoice():
-        data   = request.get_json(silent=True) or {}
-        prompt = data.get("prompt", "") or data.get("message", "")
-        if not prompt:
-            return jsonify({"ok": False, "error": "Geef een factuur beschrijving mee."}), 400
-        return jsonify(invoice_agent(prompt))
-
-    @app.route("/business/invoice/<invoice_number>")
-    def view_invoice(invoice_number: str):
-        html_file = BASE_DIR / "data" / "invoices" / f"{invoice_number}.html"
-        if not html_file.exists():
-            return f"Factuur {invoice_number} niet gevonden.", 404
-        return html_file.read_text(encoding="utf-8"), 200, {"Content-Type": "text/html"}
-
-    @app.route("/business/invoices")
-    def list_invoices():
-        from wilbert_business import INVOICES_DIR, _load_json
-        items = []
-        for f in sorted(INVOICES_DIR.glob("*.json"), reverse=True):
-            inv = _load_json(f)
-            if inv:
-                subtotal = sum(
-                    i["quantity"] * i["unit_price"] for i in inv.get("items", [])
-                )
-                total = subtotal * (1 + inv.get("btw", 21) / 100)
-                items.append({
-                    "number": inv["invoice_number"],
-                    "client": inv["client_name"],
-                    "date":   inv["date"],
-                    "total":  f"euro{total:.2f}",
-                    "url":    f"/business/invoice/{inv['invoice_number']}",
-                })
-        return jsonify({"invoices": items, "count": len(items)})
-
-    @app.route("/business/campaign", methods=["POST"])
-    def business_campaign():
-        data     = request.get_json(silent=True) or {}
-        prompt   = data.get("prompt", "") or data.get("message", "")
-        contacts = data.get("contacts", None)
-        if not prompt:
-            return jsonify({"ok": False, "error": "Geef een campagne beschrijving mee."}), 400
-        return jsonify(marketing_agent(prompt, contacts))
-
-    @app.route("/business/contacts/add", methods=["POST"])
-    def business_add_contact():
-        data  = request.get_json(silent=True) or {}
-        name  = data.get("name", "")
-        email = data.get("email", "")
-        tags  = data.get("tags", [])
-        if not name or not email:
-            return jsonify({"ok": False, "error": "Naam en email zijn verplicht."}), 400
-        return jsonify(add_contact(name, email, tags))
-
-    @app.route("/business/contacts")
-    def list_contacts():
-        from wilbert_business import CONTACTS_DIR, _load_json
-        contacts = _load_json(CONTACTS_DIR / "contacts.json") or []
-        return jsonify({"contacts": contacts, "count": len(contacts)})
-
-    @app.route("/business/summary")
-    def business_summary():
-        send = request.args.get("email", "false").lower() == "true"
-        return jsonify(daily_summary(send_email=send))
-
-    schedule_daily_summary(hour=7, minute=0)
-    print("Business module geladen.")
-
-except ImportError as e:
-    print(f"Business module niet geladen: {e}")
 
 
 if __name__ == "__main__":
