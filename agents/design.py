@@ -105,6 +105,11 @@ Geef specifieke instructies die direct gebouwd kunnen worden.
 BELANGRIJK:
 - Kies altijd één duidelijke STYLE_DIRECTION die past bij taak, doelgroep en business.
 - DEFAULT is géén Dark Premium.
+- Gebruik nooit willekeurige externe/random afbeelding-URLs.
+- Gebruik geen Unsplash random/source/photo endpoints tenzij de gebruiker expliciet een exacte URL geeft.
+- Als echte productafbeeldingen niet beschikbaar zijn, ontwerp dan premium CSS placeholders.
+- Productafbeeldingen moeten inhoudelijk kloppen met het product.
+- Liever een nette placeholder dan een verkeerde afbeelding.
 - Gebruik standaard een lichte, cleane premium stijl tenzij de gebruiker expliciet vraagt om dark, neon, futuristic, cyber, AI, glow of nightclub.
 - Premium betekent: rust, ruimte, typografie, goede beelden, duidelijke UX, vertrouwen en afwerking.
 - Premium betekent NIET automatisch: donker, neon, paars/cyaan gradients, glassmorphism of glow.
