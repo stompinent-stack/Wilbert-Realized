@@ -25,8 +25,6 @@ from agents.deploy import DeployAgent
 load_dotenv()
 
 # ── SUPABASE — optioneel, crasht nooit ───────────────────────────────────────
-# FIX 1: was een harde import + create_client() zonder try/except
-# Als SUPABASE_URL of SUPABASE_KEY leeg zijn op Render → TypeError → 500
 _supabase = None
 try:
     from supabase import create_client as _sb_create
@@ -41,8 +39,6 @@ except Exception as _e:
     print(f"⚠️  Supabase niet geladen: {_e}")
 
 # ── REALTIME TOOL — optioneel, crasht nooit ──────────────────────────────────
-# FIX 2: was een harde import zonder try/except
-# Als realtime_tool.py een fout bevat → ImportError bij startup → 500
 _realtime_intelligence = None
 try:
     from tools.realtime_tool import realtime_intelligence as _rt
@@ -87,6 +83,9 @@ ALLOWED_PROJECT_FILES = {
 }
 
 # ── GEHEUGEN ──────────────────────────────────────────────────────────────────
+_memory_cache = None  # FIX: cache zodat schijf niet elke request gelezen wordt
+
+
 def default_memory() -> Dict[str, Any]:
     return {
         "user": {
@@ -109,6 +108,9 @@ def default_memory() -> Dict[str, Any]:
 
 
 def load_memory() -> Dict[str, Any]:
+    global _memory_cache
+    if _memory_cache is not None:  # FIX: return cache als die er al is
+        return _memory_cache
     memory = default_memory()
     if MEMORY_FILE.exists():
         try:
@@ -125,10 +127,13 @@ def load_memory() -> Dict[str, Any]:
     for key in ["history", "insights", "projects", "decisions", "notes", "tasks"]:
         if not isinstance(memory.get(key), list):
             memory[key] = []
+    _memory_cache = memory
     return memory
 
 
 def save_memory(memory: Dict[str, Any]) -> None:
+    global _memory_cache
+    _memory_cache = memory  # FIX: update cache bij opslaan
     with MEMORY_FILE.open("w", encoding="utf-8") as f:
         json.dump(memory, f, indent=2, ensure_ascii=False)
 
@@ -252,10 +257,6 @@ def detect_intent(prompt: str, has_file: bool = False) -> str:
     return "advisor"
 
 # ── BESTAND VERWERKING ────────────────────────────────────────────────────────
-# FIX 4: extract_file_blocks stond DUBBEL in de live api.py.
-# De eerste kopie stond buiten elke functie → "return outside function" SyntaxError.
-# Hieronder staat alleen de CORRECTE versie met clean_generated_code.
-
 def clean_generated_code(content: str) -> str:
     content = content.strip()
     content = re.sub(r"^```[a-zA-Z0-9]*\s*", "", content)
@@ -304,12 +305,10 @@ def save_project_files(reply: str, project_name: str = "latest") -> List[str]:
     archive_dir.mkdir(parents=True, exist_ok=True)
 
     for filename, content in extract_file_blocks(reply):
-        # Laatste preview blijft werken
         preview_path = PROJECT_DIR / filename
         preview_path.parent.mkdir(parents=True, exist_ok=True)
         preview_path.write_text(content, encoding="utf-8")
 
-        # Archief per project/build
         archive_path = archive_dir / filename
         archive_path.parent.mkdir(parents=True, exist_ok=True)
         archive_path.write_text(content, encoding="utf-8")
@@ -475,7 +474,6 @@ def web_intelligence(prompt: str) -> str:
 
 # ── SUPABASE HELPERS ──────────────────────────────────────────────────────────
 def get_memory(user_id: str = "default") -> str:
-    """Haal conversatie-context op uit Supabase. Faalt stil als niet beschikbaar."""
     if not _supabase:
         return ""
     try:
@@ -497,7 +495,6 @@ def get_memory(user_id: str = "default") -> str:
 
 
 def _save_to_supabase(prompt: str, reply: str, user_id: str = "default") -> None:
-    """Sla op in Supabase. Faalt stil als niet beschikbaar."""
     if not _supabase:
         return
     try:
@@ -576,6 +573,7 @@ def chat():
             path     = UPLOAD_DIR / (datetime.utcnow().strftime("%Y%m%d%H%M%S_") + filename)
             uploaded.save(path)
             reply = analyze_image_tool(path, prompt)
+            path.unlink(missing_ok=True)  # FIX: verwijder upload direct na gebruik
 
         # ── Website bouwen ────────────────────────────────────────────────────
         elif intent == "build":
@@ -657,7 +655,6 @@ def chat():
         ):
             try:
                 rt = _realtime_intelligence(prompt)
-                # FIX: altijd door AI samenvatten, nooit raw JSON tonen
                 if isinstance(rt, dict) and rt.get("summary"):
                     reply = rt["summary"]
                 elif isinstance(rt, dict) and rt.get("time"):
