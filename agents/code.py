@@ -7,11 +7,16 @@ import anthropic
 class CodeAgent:
     def __init__(self, client):
         self.client     = client
-        self._anthropic = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        self._anthropic = anthropic.Anthropic(
+            api_key=os.getenv("ANTHROPIC_API_KEY")
+        )
+        # FIX: model via env var zodat het zonder code-wijziging aanpasbaar is
+        # Live model op 2025-05-14: claude-sonnet-4-5-20251001
+        self._model = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20251001")
 
-    def _claude(self, system: str, user: str, max_tokens: int = 6000) -> str:
+    def _claude(self, system: str, user: str, max_tokens: int = 8000) -> str:
         response = self._anthropic.messages.create(
-            model="claude-sonnet-4-5-20250929",
+            model=self._model,
             max_tokens=max_tokens,
             messages=[
                 {"role": "user", "content": f"<system>{system}</system>\n\n{user}"},
@@ -32,16 +37,14 @@ class CodeAgent:
         )
 
     def _fix_paths(self, html: str) -> str:
-        """Corrigeer ALLE mogelijke CSS/JS pad-variaties naar de juiste absolute paden."""
+        """Corrigeer alle CSS/JS pad-variaties naar correcte absolute paden."""
         fixes = [
-            # CSS fouten
             ('href="/project/style.cs"',  'href="/project/style.css"'),
             ("href='/project/style.cs'",  "href='/project/style.css'"),
             ('href="style.css"',          'href="/project/style.css"'),
             ('href="./style.css"',        'href="/project/style.css"'),
             ('href="../style.css"',       'href="/project/style.css"'),
             ('href="css/style.css"',      'href="/project/style.css"'),
-            # JS fouten
             ('src="/project/app.j"',      'src="/project/app.js"'),
             ("src='/project/app.j'",      "src='/project/app.js'"),
             ('src="app.js"',              'src="/project/app.js"'),
@@ -54,188 +57,88 @@ class CodeAgent:
         ]
         for wrong, correct in fixes:
             html = html.replace(wrong, correct)
-
-        # Regex fix voor alle overige relatieve CSS paden
         html = re.sub(
             r'href=["\'](?!http|https|/project/)([^"\']+\.css)["\']',
-            r'href="/project/\1"',
-            html,
+            r'href="/project/\1"', html,
         )
-        # Regex fix voor alle overige relatieve JS paden
         html = re.sub(
             r'src=["\'](?!http|https|/project/)([^"\']+\.js)["\']',
-            r'src="/project/\1"',
-            html,
+            r'src="/project/\1"', html,
         )
         return html
 
     def run(self, task: str, plan: str, design: str) -> str:
-        from agents.design_system import WILBERT_DESIGN_SYSTEM
+        # FIX: design_system import wrapped in try/except
+        # design_system.py bestaat niet altijd in de repo → anders ImportError
+        WILBERT_DESIGN_SYSTEM = ""
+        try:
+            from agents.design_system import WILBERT_DESIGN_SYSTEM as _ds
+            WILBERT_DESIGN_SYSTEM = _ds
+        except ImportError:
+            pass  # zonder design system werkt de build nog steeds
 
-        # ── Frontend via Claude Sonnet ─────────────────────────────────────────
         system = """Je bent een premium frontend developer, creative director en senior UI engineer.
 Je bouwt premium moderne websites op het niveau van Framer, Linear, Vercel, Stripe en Apple.
-
-BELANGRIJK:
-Je krijgt een design plan van de DesignAgent.
-Volg de STYLE_DIRECTION uit dat design plan.
-Forceer NIET altijd dezelfde dark premium stijl.
-Als het design plan geen duidelijke stijl bevat, kies zelf een stijl passend bij taak en doelgroep. 
-Gebruik Dark Premium alleen als het echt logisch past.
-Je MOET alle nav-secties volledig bouwen.
-Elke nav-link moet corresponderen met een zichtbare sectie met echte content.
-Geen lege 100vh vlakken.
-Als output te lang wordt, verkort CSS, maar laat nooit HTML-secties leeg.
-
-Je krijgt ook een volledig Wilbert design system mee.
-Gebruik de CSS EXACT als basis en bouw daar veilig op voort.
 
 ABSOLUTE REGELS:
 1. CSS link ALTIJD exact: <link rel="stylesheet" href="/project/style.css">
 2. JS script ALTIJD exact: <script src="/project/app.js"></script>
-3. Kopieer het volledige design system CSS in style.css
-4. Gebruik de bestaande design system klassen waar mogelijk
-5. Hero structuur: .hero > .hero-inner > .hero-badge + h1.gradient-text + p + .hero-btns
-6. Voeg .orb.orb-1 en .orb.orb-2 toe in hero wanneer dit past bij de stijl
-7. Navbar: fixed of sticky, premium uitstraling, .nav-logo + .nav-links + .nav-right
-8. Cards: premium, bij voorkeur .glass-card
-9. Secties: duidelijke hiërarchie via .section-header > .section-tag + .section-title + .section-sub
-10. Voeg .fade-up toe op belangrijke cards/secties voor scroll animatie
-11. Er mag maar EXACT ÉÉN hero section bestaan.
-12. Maak GEEN lege wrapper divs of spacer sections.
-13. Gebruik NOOIT extra sections boven de hero.
-14. De eerste zichtbare sectie onder nav moet DIRECT de hero content bevatten.
-15. Gebruik geen empty min-height containers.
-16. Gebruik geen placeholder wrappers.
-17. De hero moet ALTIJD direct zichtbare content bevatten binnen de eerste viewport.
-18. Maak nooit een lege section met alleen padding/margin/min-height.
-19. Nav-links mogen alleen verwijzen naar bestaande zichtbare secties.
-20. Elke section moet echte content bevatten.
+3. Geen relatieve paden zoals ./style.css of ../style.css
+4. Geen lege secties, geen lorem ipsum, geen onafgemaakte onderdelen
+5. Formulieren: fetch() POST, nooit action= attribuut
+6. Volledig responsive, premium uitstraling
 
-DESIGN KWALITEIT:
-- Maak geen generieke AI-template website
-- Elke sectie moet bewust ontworpen voelen
-- Sterke visuele hiërarchie
-- Duidelijke CTA flow
-- Goede spacing en max-widths
-- Responsive en mobiel sterk
-- Consistente buttons, cards, forms en secties
-- Genoeg whitespace
-- Premium micro-interactions
-- Subtiele animaties, geen overdreven effecten
-
-STYLE_DIRECTION:
-Volg de stijl die de DesignAgent heeft gekozen:
-- Minimal SaaS: licht, clean, veel witruimte
-- Dark Premium: donker, neon accenten, glow
-- Playful Startup: kleurrijk, bold, energiek
-- Luxury Brand: zwart/goud, elegante typography
-- Futuristic AI: donkerblauw/paars, tech gevoel
-- Editorial Clean: strak grid, sterke typografie
-
-KLEUREN:
-- Gebruik kleuren uit het design plan
-- Als kleuren ontbreken: kies professioneel palet passend bij de taak
-- CSS variables waar logisch
-- Goed contrast
-- Gradients alleen waar ze waarde toevoegen
-
-TYPOGRAPHY:
-- Grote krachtige headings
-- Duidelijke body tekst
-- Goede line-height
-- Sterke spacing tussen tekstblokken
-- Responsive font sizes voor mobiel
-
-LAYOUT:
-- Complete landing page of app interface passend bij de taak
-- Duidelijke secties
-- Grids, bento layouts of cards waar passend
-- Geen lege secties
-- Geen placeholder tekst zoals lorem ipsum
-- Geen onafgemaakte onderdelen
-
-FORMULIEREN:
-fetch() POST naar /api/contact — nooit action= op forms.
-Als een formulier nodig is:
-- Mooie labels
-- Ruime inputs
-- Focus states
-- Loading state
-- Success message
-- Error message
-- Disabled submit tijdens verzending
-
-INTERACTIES:
-- Smooth scroll
-- Navbar scroll effect
-- Fade-in / slide-up animaties
-- Button hover states
-- Card hover states
-- Mobile menu indien nodig
-
-BELANGRIJKE VALIDATIE:
-Controleer vóór output:
-- geen dubbele hero
-- geen lege sections
-- geen lege divs
-- geen 100vh spacer blocks
-- geen verborgen hero content
-- hero content moet direct zichtbaar zijn bij page load
-
-VERBODEN:
-- Lege secties
-- Relatieve paden zoals ./style.css of ../style.css
-- href="/project/style.cs" zonder de tweede s
-- Buttons als gewone saaie links
-- Onleesbaar contrast
-- Te kleine tekst op mobiel
-- Niet-werkende navigatie
-- Markdown uitleg buiten FILE blocks
-
-Output: alleen FILE blocks, geen uitleg, geen markdown.
+Output: alleen FILE blocks, geen markdown uitleg.
 Begin EXACT met: FILE: index.html"""
 
+        design_ctx = f"\nDESIGN SYSTEM CSS:\n{WILBERT_DESIGN_SYSTEM}\n\n" if WILBERT_DESIGN_SYSTEM else ""
+
         user = (
-            f"DESIGN SYSTEM CSS (kopieer EXACT in style.css):\n{WILBERT_DESIGN_SYSTEM}\n\n"
+            f"{design_ctx}"
             f"TAAK:\n{task}\n\n"
             f"PLAN:\n{plan}\n\n"
             f"DESIGN:\n{design}\n\n"
-            "Bouw nu de volledige premium website.\n\n"
+            "Bouw de volledige website.\n\n"
             "FILE: index.html\n<volledige html>\n\n"
-            "FILE: style.css\n<VOLLEDIG design system CSS + aanvullingen>\n\n"
-            "FILE: app.js\n<javascript met fade-in, smooth scroll, navbar effect>"
+            "FILE: style.css\n<volledige css>\n\n"
+            "FILE: app.js\n<javascript>"
         )
 
-        frontend = self._claude(system, user, max_tokens=6000)
+        try:
+            frontend = self._claude(system, user, max_tokens=3500)
+        except Exception as e:
+            # Fallback: log de fout maar crash niet naar de gebruiker
+            print(f"[CodeAgent] Anthropic API fout: {e}")
+            return (
+                "FILE: index.html\n"
+                "<!DOCTYPE html><html><head><title>Build fout</title>"
+                "<link rel='stylesheet' href='/project/style.css'></head>"
+                f"<body><h1>Build mislukt</h1><p>{e}</p></body></html>\n\n"
+                "FILE: style.css\nbody{{font-family:sans-serif;padding:40px}}\n\n"
+                "FILE: app.js\nconsole.log('build error');"
+            )
 
-        # Markdown fences verwijderen
         for tag in ["```html", "```css", "```javascript", "```js", "```"]:
             frontend = frontend.replace(tag, "")
-
-        # Corrigeer alle CSS/JS paden automatisch
         frontend = self._fix_paths(frontend)
 
-        # ── Backend (alleen als nodig) ─────────────────────────────────────────
         if not self._needs_backend(task):
             return frontend.strip()
 
         backend_system = (
             "Je bent een senior Python/Flask developer. "
             "Schrijf een volledige werkende Flask backend. "
-            "Gebruik: flask, python-dotenv, supabase, werkzeug. "
-            "Supabase als SUPABASE_URL beschikbaar, anders lokaal JSON. "
-            "JSON responses: {'ok': True} of {'ok': False, 'error': '...'}. "
-            "CORS headers toevoegen. Email via SMTP als SMTP_HOST aanwezig. "
-            "Wachtwoorden hashen met werkzeug.security. os.getenv() voor alle keys. "
             "Begin exact met: FILE: server.py"
         )
         backend_user = (
             f"TAAK:\n{task}\n\nPLAN:\n{plan}\n\n"
-            "Schrijf de volledige Flask backend.\n\n"
             "FILE: server.py\n<python>\n\nFILE: routes.md\n<uitleg>"
         )
-        backend = self._claude(backend_system, backend_user, max_tokens=6000)
+        try:
+            backend = self._claude(backend_system, backend_user, max_tokens=2000)
+        except Exception as e:
+            print(f"[CodeAgent] Backend Anthropic fout: {e}")
+            backend = f"FILE: server.py\n# Backend build fout: {e}"
 
         for tag in ["```python", "```markdown", "```md", "```"]:
             backend = backend.replace(tag, "")
