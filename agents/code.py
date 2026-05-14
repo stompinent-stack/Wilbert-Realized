@@ -17,23 +17,24 @@ class CodeAgent:
             "ANTHROPIC_MODEL",
             "claude-3-5-sonnet-latest"
         )
+
     def _claude(self, system: str, user: str, max_tokens: int = 8000) -> str:
-    try:
-        response = self._anthropic.messages.create(
-            model=self._model,
-            max_tokens=max_tokens,
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"<system>{system}</system>\n\n{user}"
-                },
-            ],
-        )
+        try:
+            response = self._anthropic.messages.create(
+                model=self._model,
+                max_tokens=max_tokens,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": f"<system>{system}</system>\n\n{user}"
+                    },
+                ],
+            )
 
-        return response.content[0].text or ""
+            return response.content[0].text or ""
 
-    except Exception as e:
-        return f"CODEAGENT ERROR: {str(e)}"
+        except Exception as e:
+            return f"CODEAGENT ERROR: {str(e)}"
 
     def _needs_backend(self, task: str) -> bool:
         return any(
@@ -66,22 +67,27 @@ class CodeAgent:
             ('src="./script.js"',         'src="/project/app.js"'),
             ('src="main.js"',             'src="/project/app.js"'),
         ]
+
         for wrong, correct in fixes:
             html = html.replace(wrong, correct)
+
         html = re.sub(
             r'href=["\'](?!http|https|/project/)([^"\']+\.css)["\']',
             r'href="/project/\1"', html,
         )
+
         html = re.sub(
             r'src=["\'](?!http|https|/project/)([^"\']+\.js)["\']',
             r'src="/project/\1"', html,
         )
+
         return html
 
     def run(self, task: str, plan: str, design: str) -> str:
         # FIX: design_system import wrapped in try/except
         # design_system.py bestaat niet altijd in de repo → anders ImportError
         WILBERT_DESIGN_SYSTEM = ""
+
         try:
             from agents.design_system import WILBERT_DESIGN_SYSTEM as _ds
             WILBERT_DESIGN_SYSTEM = _ds
@@ -131,6 +137,7 @@ Begin EXACT met: FILE: index.html"""
 
         for tag in ["```html", "```css", "```javascript", "```js", "```"]:
             frontend = frontend.replace(tag, "")
+
         frontend = self._fix_paths(frontend)
 
         if not self._needs_backend(task):
@@ -141,10 +148,12 @@ Begin EXACT met: FILE: index.html"""
             "Schrijf een volledige werkende Flask backend. "
             "Begin exact met: FILE: server.py"
         )
+
         backend_user = (
             f"TAAK:\n{task}\n\nPLAN:\n{plan}\n\n"
             "FILE: server.py\n<python>\n\nFILE: routes.md\n<uitleg>"
         )
+
         try:
             backend = self._claude(backend_system, backend_user, max_tokens=2000)
         except Exception as e:
