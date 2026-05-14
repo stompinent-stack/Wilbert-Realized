@@ -12,7 +12,6 @@ class CodeAgent:
             api_key=os.getenv("ANTHROPIC_API_KEY")
         )
 
-        # Gebruik model via env var zodat Render/config het kan aanpassen
         self._model = os.getenv(
             "ANTHROPIC_MODEL",
             "claude-sonnet-4-6"
@@ -114,15 +113,13 @@ class CodeAgent:
         return html
 
     def run(self, task: str, plan: str, design: str) -> str:
-        # FIX: design_system import wrapped in try/except
-        # design_system.py bestaat niet altijd in de repo → anders ImportError
         WILBERT_DESIGN_SYSTEM = ""
 
         try:
             from agents.design_system import WILBERT_DESIGN_SYSTEM as _ds
             WILBERT_DESIGN_SYSTEM = _ds
         except ImportError:
-            pass  # zonder design system werkt de build nog steeds
+            pass
 
         system = """Je bent een premium frontend developer, creative director en senior UI engineer.
 Je bouwt premium moderne websites op het niveau van Framer, Linear, Vercel, Stripe en Apple.
@@ -151,18 +148,7 @@ Begin EXACT met: FILE: index.html"""
             "FILE: app.js\n<javascript>"
         )
 
-        try:
-            frontend = self._claude(system, user, max_tokens=6000)
-        except Exception as e:
-            print(f"[CodeAgent] Anthropic API fout: {e}")
-            return (
-                "FILE: index.html\n"
-                "<!DOCTYPE html><html><head><title>Build fout</title>"
-                "<link rel='stylesheet' href='/project/style.css'></head>"
-                f"<body><h1>Build mislukt</h1><p>{e}</p></body></html>\n\n"
-                "FILE: style.css\nbody{{font-family:sans-serif;padding:40px}}\n\n"
-                "FILE: app.js\nconsole.log('build error');"
-            )
+        frontend = self._claude(system, user, max_tokens=10000)
 
         for tag in ["```html", "```css", "```javascript", "```js", "```"]:
             frontend = frontend.replace(tag, "")
@@ -183,11 +169,7 @@ Begin EXACT met: FILE: index.html"""
             "FILE: server.py\n<python>\n\nFILE: routes.md\n<uitleg>"
         )
 
-        try:
-            backend = self._claude(backend_system, backend_user, max_tokens=2000)
-        except Exception as e:
-            print(f"[CodeAgent] Backend Anthropic fout: {e}")
-            backend = f"FILE: server.py\n# Backend build fout: {e}"
+        backend = self._claude(backend_system, backend_user, max_tokens=2500)
 
         for tag in ["```python", "```markdown", "```md", "```"]:
             backend = backend.replace(tag, "")
