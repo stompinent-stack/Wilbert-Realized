@@ -18,14 +18,22 @@ class CodeAgent:
             "claude-3-5-sonnet-latest"
         )
     def _claude(self, system: str, user: str, max_tokens: int = 8000) -> str:
+    try:
         response = self._anthropic.messages.create(
             model=self._model,
             max_tokens=max_tokens,
             messages=[
-                {"role": "user", "content": f"<system>{system}</system>\n\n{user}"},
+                {
+                    "role": "user",
+                    "content": f"<system>{system}</system>\n\n{user}"
+                },
             ],
         )
+
         return response.content[0].text or ""
+
+    except Exception as e:
+        return f"CODEAGENT ERROR: {str(e)}"
 
     def _needs_backend(self, task: str) -> bool:
         return any(
