@@ -5,3 +5,7 @@ __pycache__/
 .DS_Store
 uploads/*
 !uploads/.gitkeep
+cofounder_memory.json
+trend_memory.json
+output/project/*
+!output/project/.gitkeep
