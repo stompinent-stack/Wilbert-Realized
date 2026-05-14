@@ -15,7 +15,7 @@ class CodeAgent:
         # Gebruik model via env var zodat Render/config het kan aanpassen
         self._model = os.getenv(
             "ANTHROPIC_MODEL",
-            "claude-3-5-sonnet-latest"
+            "claude-sonnet-4-6"
         )
 
     def _claude(self, system: str, user: str, max_tokens: int = 8000) -> str:
@@ -154,7 +154,6 @@ Begin EXACT met: FILE: index.html"""
         try:
             frontend = self._claude(system, user, max_tokens=6000)
         except Exception as e:
-            # Fallback: log de fout maar crash niet naar de gebruiker
             print(f"[CodeAgent] Anthropic API fout: {e}")
             return (
                 "FILE: index.html\n"
