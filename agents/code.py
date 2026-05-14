@@ -131,6 +131,17 @@ ABSOLUTE REGELS:
 4. Geen lege secties, geen lorem ipsum, geen onafgemaakte onderdelen
 5. Formulieren: fetch() POST, nooit action= attribuut
 6. Volledig responsive, premium uitstraling
+7. Gebruik NOOIT random externe afbeelding URLs
+8. Gebruik GEEN Unsplash random/source/photo endpoints
+9. Gebruik alleen:
+   - echte door gebruiker aangeleverde afbeeldingen
+   - of premium CSS placeholders
+10. Als echte productafbeeldingen ontbreken:
+   - gebruik CSS placeholders
+   - geen irrelevante stockfoto’s tonen
+11. Productafbeeldingen moeten inhoudelijk overeenkomen met het product
+12. Liever geen afbeelding dan een verkeerde afbeelding
+13. Kapotte img tags moeten automatisch fallback placeholders tonen
 
 Output: alleen FILE blocks, geen markdown uitleg.
 Begin EXACT met: FILE: index.html"""
