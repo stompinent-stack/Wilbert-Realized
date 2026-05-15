@@ -122,57 +122,57 @@ class CodeAgent:
 
         design_ctx = f"\nDESIGN SYSTEM CSS:\n{WILBERT_DESIGN_SYSTEM}\n\n" if WILBERT_DESIGN_SYSTEM else ""
 
-        # ── Call 1: HTML + JS ─────────────────────────────────────────────────
+        # ── Call 1: HTML ──────────────────────────────────────────────────────
         html_system = """Je bent een premium frontend developer en senior UI engineer.
-Je bouwt premium moderne websites op het niveau van Framer, Linear, Vercel, Stripe en Apple.
+Je bouwt websites op het niveau van Framer, Linear, Vercel, Stripe en Apple.
 
-ABSOLUTE REGELS:
-1. CSS link ALTIJD exact: <link rel="stylesheet" href="/project/style.css">
-2. JS script ALTIJD exact: <script src="/project/app.js"></script>
-3. Geen relatieve paden zoals ./style.css of ../style.css
-4. Geen lege secties, geen lorem ipsum, geen onafgemaakte onderdelen
-5. Formulieren: fetch() POST, nooit action= attribuut
-6. Volledig responsive, premium uitstraling
-7. Gebruik NOOIT random externe afbeelding URLs
-8. Gebruik GEEN Unsplash random/source/photo endpoints
-9. Gebruik alleen echte aangeleverde afbeeldingen of premium CSS placeholders
-10. Liever geen afbeelding dan een verkeerde afbeelding
+REGELS:
+1. CSS link ALTIJD: <link rel="stylesheet" href="/project/style.css">
+2. JS script ALTIJD: <script src="/project/app.js"></script>
+3. Geen lorem ipsum, geen lege secties
+4. Gebruik GEEN externe afbeelding URLs of Unsplash
+5. Gebruik SVG iconen of emoji als visuele elementen
+6. Alle secties volledig uitgewerkt met echte content
 
-Output: alleen FILE blocks, geen markdown uitleg.
-Begin EXACT met: FILE: index.html"""
+Output: alleen de HTML, begin met: FILE: index.html"""
 
         html_user = (
             f"{design_ctx}"
             f"TAAK:\n{task}\n\n"
             f"PLAN:\n{plan}\n\n"
             f"DESIGN:\n{design}\n\n"
-            "Genereer ALLEEN de HTML en JavaScript.\n\n"
-            "FILE: index.html\n<volledige html>\n\n"
-            "FILE: app.js\n<javascript>"
+            "Genereer de volledige HTML met alle secties en content.\n\n"
+            "FILE: index.html\n"
         )
 
-        html_js = self._claude(html_system, html_user, max_tokens=8000)
+        html = self._claude(html_system, html_user, max_tokens=6000)
 
-        for tag in ["```html", "```javascript", "```js", "```"]:
-            html_js = html_js.replace(tag, "")
+        for tag in ["```html", "```"]:
+            html = html.replace(tag, "")
 
-        html_js = self._fix_paths(html_js)
+        html = self._fix_paths(html)
 
-        # ── Call 2: CSS apart ─────────────────────────────────────────────────
+        # ── Call 2: CSS op basis van de gegenereerde HTML ─────────────────────
         css_system = """Je bent een premium CSS designer.
-Schrijf volledige, uitgebreide CSS voor een premium website.
-Geen markdown, geen uitleg, alleen pure CSS code.
+Schrijf professionele, volledige CSS voor de gegeven HTML.
+
+VERPLICHT:
+- navbar: position: fixed, top: 0, width: 100%, background wit, z-index: 1000, box-shadow
+- body: padding-top: 80px zodat content niet onder navbar valt
+- Alle secties volledig gestyled
+- Mobile responsive met @media queries
+- Animaties, hover effecten, transitions
+- Kleurenschema passend bij het thema
+- Geen generieke of basic styling
+
 Begin EXACT met: FILE: style.css"""
 
         css_user = (
             f"TAAK:\n{task}\n\n"
-            f"DESIGN:\n{design}\n\n"
-            "Schrijf de VOLLEDIGE CSS. Zorg voor:\n"
-            "- Alle secties gestyled\n"
-            "- Responsive (mobile, tablet, desktop)\n"
-            "- Animaties en hover effecten\n"
-            "- Mooie kleuren passend bij het thema\n\n"
-            "FILE: style.css\n<volledige css>"
+            f"DESIGN RICHTING:\n{design}\n\n"
+            f"HTML (gebruik deze klassen en IDs):\n{html[:3000]}\n\n"
+            "Schrijf de VOLLEDIGE CSS. Zorg dat navbar fixed is en alles perfect uitlijnt.\n\n"
+            "FILE: style.css\n"
         )
 
         css = self._claude(css_system, css_user, max_tokens=8000)
@@ -180,12 +180,35 @@ Begin EXACT met: FILE: style.css"""
         for tag in ["```css", "```"]:
             css = css.replace(tag, "")
 
-        frontend = html_js.strip() + "\n\n" + css.strip()
+        # ── Call 3: JavaScript ────────────────────────────────────────────────
+        js_system = """Je bent een senior JavaScript developer.
+Schrijf moderne, werkende JavaScript voor de website.
+Geen frameworks, vanilla JS.
+Begin EXACT met: FILE: app.js"""
+
+        js_user = (
+            f"TAAK:\n{task}\n\n"
+            f"HTML structuur:\n{html[:2000]}\n\n"
+            "Schrijf JavaScript voor:\n"
+            "- Mobile menu toggle\n"
+            "- Smooth scroll\n"
+            "- Navbar verbergen/tonen bij scrollen\n"
+            "- Animaties bij scroll (intersection observer)\n"
+            "- Alle interactieve elementen in de HTML\n\n"
+            "FILE: app.js\n"
+        )
+
+        js = self._claude(js_system, js_user, max_tokens=3000)
+
+        for tag in ["```javascript", "```js", "```"]:
+            js = js.replace(tag, "")
+
+        frontend = html.strip() + "\n\n" + css.strip() + "\n\n" + js.strip()
 
         if not self._needs_backend(task):
             return frontend.strip()
 
-        # ── Call 3: Backend indien nodig ──────────────────────────────────────
+        # ── Call 4: Backend indien nodig ──────────────────────────────────────
         backend_system = (
             "Je bent een senior Python/Flask developer. "
             "Schrijf een volledige werkende Flask backend. "
