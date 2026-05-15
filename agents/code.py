@@ -19,7 +19,8 @@ class CodeAgent:
 
     def _claude(self, system: str, user: str, max_tokens: int = 8000) -> str:
         try:
-            response = self._anthropic.messages.create(
+            full_text = ""
+            with self._anthropic.messages.stream(
                 model=self._model,
                 max_tokens=max_tokens,
                 messages=[
@@ -28,9 +29,10 @@ class CodeAgent:
                         "content": f"<system>{system}</system>\n\n{user}"
                     },
                 ],
-            )
-
-            return response.content[0].text or ""
+            ) as stream:
+                for text in stream.text_stream:
+                    full_text += text
+            return full_text
 
         except Exception as e:
             error = str(e).replace("<", "&lt;").replace(">", "&gt;")
@@ -137,7 +139,7 @@ ABSOLUTE REGELS:
 11. Kapotte img tags moeten automatisch fallback placeholders tonen
 12. navbar: position fixed, witte achtergrond, z-index 1000, box-shadow
 13. body: altijd padding-top: 80px zodat content niet onder navbar valt
-14. hero tekst: altijd zichtbaar met juiste contrast tegen achtergrond
+14. hero tekst: altijd zichtbaar met juist contrast tegen achtergrond
 
 Output: alleen FILE blocks, geen markdown uitleg.
 Begin EXACT met: FILE: index.html"""
@@ -155,7 +157,7 @@ Begin EXACT met: FILE: index.html"""
             "FILE: app.js\n<javascript>"
         )
 
-        frontend = self._claude(system, user, max_tokens=32000)  # FIX: was 10000/16000
+        frontend = self._claude(system, user, max_tokens=16000)
 
         for tag in ["```html", "```css", "```javascript", "```js", "```"]:
             frontend = frontend.replace(tag, "")
