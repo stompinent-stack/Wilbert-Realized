@@ -132,18 +132,12 @@ ABSOLUTE REGELS:
 6. Volledig responsive, premium uitstraling
 7. Gebruik NOOIT random externe afbeelding URLs
 8. Gebruik GEEN Unsplash random/source/photo endpoints
-9. Gebruik alleen:
-   - echte door gebruiker aangeleverde afbeeldingen
-   - of premium CSS placeholders
-10. Als echte productafbeeldingen ontbreken:
-   - gebruik CSS placeholders
-   - geen irrelevante stockfoto's tonen
-11. Productafbeeldingen moeten inhoudelijk overeenkomen met het product
-12. Liever geen afbeelding dan een verkeerde afbeelding
-13. Kapotte img tags moeten automatisch fallback placeholders tonen
-14. navbar: position fixed, witte achtergrond, z-index 1000, box-shadow
-15. body: altijd padding-top: 80px zodat content niet onder navbar valt
-16. hero tekst: altijd zichtbaar met juiste contrast tegen achtergrond
+9. Gebruik alleen echte aangeleverde afbeeldingen of premium CSS placeholders
+10. Liever geen afbeelding dan een verkeerde afbeelding
+11. Kapotte img tags moeten automatisch fallback placeholders tonen
+12. navbar: position fixed, witte achtergrond, z-index 1000, box-shadow
+13. body: altijd padding-top: 80px zodat content niet onder navbar valt
+14. hero tekst: altijd zichtbaar met juiste contrast tegen achtergrond
 
 Output: alleen FILE blocks, geen markdown uitleg.
 Begin EXACT met: FILE: index.html"""
@@ -161,7 +155,7 @@ Begin EXACT met: FILE: index.html"""
             "FILE: app.js\n<javascript>"
         )
 
-        frontend = self._claude(system, user, max_tokens=16000)
+        frontend = self._claude(system, user, max_tokens=32000)  # FIX: was 10000/16000
 
         for tag in ["```html", "```css", "```javascript", "```js", "```"]:
             frontend = frontend.replace(tag, "")
